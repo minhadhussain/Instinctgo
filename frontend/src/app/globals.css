@@ -59,12 +59,31 @@ button:disabled { cursor: default; }
 .hero { position: relative; }
 .hero-intro { padding-top: 64px; }
 .parallax-hero { position: relative; height: 180svh; min-height: 1152px; }
-.parallax-stage { --background-position: 55%; position: sticky; top: 0; height: 100svh; overflow: hidden; background: #304b52; }
-.parallax-background, .parallax-building { position: absolute; inset: -14% -4% -12%; z-index: 0; pointer-events: none; transform: translate3d(0, var(--background-shift, 0px), 0); will-change: transform; }
+.parallax-stage { --background-position: 55%; --wordmark-size: clamp(64px, min(19.8vw, 32svh), 380px); --scene-ivory: #f5f0e5; --scene-gold: #e8bc85; position: sticky; top: 0; height: 100svh; overflow: hidden; background: #304b52; isolation: isolate; }
+.parallax-stage::after { content: ""; position: absolute; z-index: 5; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgb(12 29 34 / 38%), transparent 24%, transparent 65%, rgb(9 19 23 / 75%)); }
+.parallax-background, .parallax-building { position: absolute; inset: -7% -4% -19%; z-index: 0; pointer-events: none; transform: translate3d(0, var(--background-shift, 0px), 0); will-change: transform; }
 .parallax-background-image { object-fit: cover; object-position: center var(--background-position); }
 .parallax-building { z-index: 3; mask-image: url("/images/hero/building-mask.svg"); mask-size: cover; mask-position: center var(--background-position); mask-repeat: no-repeat; }
-.parallax-wordmark { --wordmark-size: clamp(32px, 10.5vw, 240px); --wordmark-stretch: 1; position: absolute; z-index: 2; top: var(--wordmark-top, 30%); left: 50%; transform: translate3d(-50%, calc(-50% + var(--wordmark-shift, 0px)), 0) scale(var(--wordmark-scale, 1)); margin: 0; color: #fff; font-family: var(--font-poppins), sans-serif; font-size: var(--wordmark-size); font-weight: 700; font-style: normal; line-height: 1; letter-spacing: -.035em; white-space: nowrap; pointer-events: none; will-change: transform; }
-.parallax-wordmark-text { display: block; text-shadow: 0 8px 32px rgb(16 33 40 / 24%); transform: scaleY(var(--wordmark-stretch)); }
+.parallax-wordmark { position: absolute; z-index: 2; top: var(--wordmark-top, 30%); left: 50%; transform: translate3d(-50%, calc(-50% + var(--wordmark-shift, 0px)), 0) scale(var(--wordmark-scale, 1)); margin: 0; color: var(--scene-ivory); font-family: var(--font-display), "Arial Narrow", sans-serif; font-size: var(--wordmark-size); font-weight: 600; line-height: .86; letter-spacing: -.025em; white-space: nowrap; pointer-events: none; will-change: transform; }
+.parallax-wordmark-text { display: flex; align-items: baseline; text-shadow: 0 2px 1px rgb(255 255 255 / 12%), 0 12px 45px rgb(10 25 31 / 20%); }
+.wordmark-instinct { background: linear-gradient(180deg, #fffdf6 18%, var(--scene-ivory) 65%, #c9c9ba); background-clip: text; -webkit-text-fill-color: transparent; }
+.wordmark-action { display: inline-flex; align-items: baseline; }
+.wordmark-go { margin-left: .035em; font-family: var(--font-playfair), serif; font-size: .79em; font-style: italic; font-weight: 500; letter-spacing: -.085em; color: var(--scene-gold); }
+.wordmark-period { font-family: var(--font-playfair), serif; font-style: italic; font-size: .54em; font-weight: 500; color: var(--scene-gold); margin-left: .045em; }
+.scene-masthead { position: absolute; z-index: 6; inset: 0 3.6vw auto; padding-block: 27px 19px; display: flex; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid rgb(245 240 229 / 22%); color: var(--scene-ivory); }
+.scene-signature { display: inline-flex; align-items: center; gap: 12px; font-size: 11px; font-weight: 500; letter-spacing: 2.2px; }
+.scene-symbol { display: grid; place-items: center; width: 37px; height: 37px; border: 1px solid rgb(245 240 229 / 45%); border-radius: 50%; font-family: var(--font-playfair), serif; font-style: italic; font-size: 23px; font-weight: 500; letter-spacing: -2px; padding-right: 2px; }
+.scene-signature-caption { display: block; font-size: 7px; letter-spacing: 1.55px; margin-top: 4px; color: #d8ded8; }
+.scene-explore { display: inline-flex; align-items: center; gap: 22px; min-height: 44px; font-size: 11px; }
+.scene-explore svg { transition: transform 200ms ease; }
+.scene-explore:hover svg { transform: translate(3px, -3px); }
+.scene-masthead a:focus-visible, .scene-scroll:focus-visible { outline-color: var(--scene-gold); }
+.scene-caption { position: absolute; z-index: 6; bottom: max(36px, env(safe-area-inset-bottom)); left: 3.6vw; right: 3.6vw; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; color: var(--scene-ivory); }
+.scene-caption p { margin: 0; font-size: clamp(16px, 1.5vw, 23px); font-weight: 400; line-height: 1.45; letter-spacing: -.35px; }
+.scene-caption p > span { font-family: var(--font-playfair), serif; font-style: italic; color: var(--scene-gold); font-size: 1.15em; }
+.scene-scroll { display: flex; align-items: center; gap: 20px; font-size: 8px; font-weight: 500; letter-spacing: 1.8px; line-height: 1.8; }
+.scene-scroll-icon { display: grid; place-items: center; width: 46px; height: 46px; border: 1px solid rgb(245 240 229 / 45%); border-radius: 50%; transition: background 200ms ease, transform 200ms ease; }
+.scene-scroll:hover .scene-scroll-icon { background: rgb(245 240 229 / 12%); transform: translateY(3px); }
 .parallax-foreground { --foreground-ground: #101213; position: absolute; z-index: 4; bottom: -15svh; left: -4%; width: 108%; pointer-events: none; transform: translate3d(0, var(--foreground-shift, 0px), 0); will-change: transform; }
 .parallax-foreground-image { display: block; width: 100%; height: auto; }
 .parallax-foreground::before { content: ""; position: absolute; z-index: 1; bottom: 0; left: 0; width: 100%; height: 12%; background: linear-gradient(to bottom, transparent, var(--foreground-ground)); }
@@ -311,7 +330,19 @@ button:disabled { cursor: default; }
   .hero h1 .serif-accent { letter-spacing: -1.4px; }
   .parallax-hero { height: 165svh; min-height: 1056px; }
   .hero-intro { padding-top: 42px; }
-  .parallax-stage { --background-position: 60%; }
+  .parallax-stage { --background-position: 60%; --wordmark-size: min(25vw, 23svh); }
+  .parallax-wordmark-text { flex-direction: column; align-items: center; gap: .06em; }
+  .wordmark-action { margin-top: -.08em; font-size: 1.45em; line-height: .8; }
+  .wordmark-go { margin-left: 0; }
+  .scene-masthead { inset-inline: 20px; padding-block: 18px 14px; gap: 16px; }
+  .scene-signature { gap: 8px; font-size: 9px; letter-spacing: 1.5px; }
+  .scene-symbol { width: 32px; height: 32px; font-size: 20px; }
+  .scene-signature-caption { display: none; }
+  .scene-explore { font-size: 10px; gap: 8px; }
+  .scene-caption { left: 20px; right: 20px; bottom: max(28px, env(safe-area-inset-bottom)); gap: 16px; }
+  .scene-caption p { font-size: 15px; }
+  .scene-scroll { font-size: 7px; letter-spacing: 1px; gap: 10px; min-height: 44px; }
+  .scene-scroll-icon { width: 36px; height: 36px; }
   .parallax-foreground { width: 150%; left: -25%; bottom: -3svh; }
   .hero-description { max-width: 400px; font-size: 12px; line-height: 1.85; padding-inline: 6px; }
   .hero-actions { margin-top: 24px; gap: 8px; }
@@ -402,6 +433,21 @@ button:disabled { cursor: default; }
   .site-footer { flex-wrap: wrap; gap: 12px; padding-block: 23px; }
   .site-footer p { margin-left: auto; font-size: 7px; }
   .site-footer > span { display: none; }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .parallax-hero { min-height: 0; }
+  .parallax-stage { --wordmark-size: min(17vw, 27svh); }
+  .parallax-wordmark-text { flex-direction: row; align-items: baseline; gap: 0; }
+  .wordmark-action { margin-top: 0; font-size: 1em; line-height: inherit; }
+  .parallax-foreground { width: 108%; left: -4%; bottom: -15svh; }
+  .scene-masthead { padding-block: 10px 8px; }
+  .scene-signature-caption { display: none; }
+  .scene-symbol { width: 32px; height: 32px; font-size: 20px; }
+  .scene-explore { min-height: 36px; }
+  .scene-caption { bottom: 20px; }
+  .scene-caption p { font-size: 14px; }
+  .scene-scroll-icon { width: 36px; height: 36px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

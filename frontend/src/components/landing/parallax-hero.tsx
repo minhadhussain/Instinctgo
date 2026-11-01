@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { ArrowDown, ArrowUpRight } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 // Source-image coordinates, matching building-mask.svg.
@@ -42,9 +43,9 @@ export function ParallaxHero() {
       if (progress === lastProgress) return;
       lastProgress = progress;
 
-      stage.style.setProperty("--background-shift", `${progress * stageHeight * 0.12}px`);
-      stage.style.setProperty("--wordmark-shift", `${-progress * stageHeight * 0.18}px`);
-      stage.style.setProperty("--wordmark-scale", `${1 + progress * 0.05}`);
+      stage.style.setProperty("--background-shift", `${progress * stageHeight * 0.06}px`);
+      stage.style.setProperty("--wordmark-shift", `${-progress * stageHeight * 0.035}px`);
+      stage.style.setProperty("--wordmark-scale", `${1 + progress * 0.025}`);
       stage.style.setProperty("--foreground-shift", `${-progress * stageHeight * 0.42}px`);
     }
 
@@ -58,9 +59,19 @@ export function ParallaxHero() {
       stageHeight = stage.offsetHeight;
       distance = Math.max(1, section.offsetHeight - stageHeight);
 
-      // Follow the cover-cropped roof on every screen, estimating 10% overlap
-      // across the lettering rather than just touching the tallest roof peak.
-      const style = getComputedStyle(wordmark);
+      // Follow the cover-cropped roof. Font ink metrics keep the two typefaces
+      // aligned with the roof rather than centering their unequal line boxes.
+      const lettering = wordmark.querySelector<HTMLElement>(".wordmark-go");
+      if (!lettering) return;
+      const style = getComputedStyle(lettering);
+      const fontSize = parseFloat(style.fontSize);
+      const textMeasure = document.createElement("canvas").getContext("2d");
+      if (textMeasure) textMeasure.font = style.font;
+      const metrics = textMeasure?.measureText("Go");
+      const letterHeight = metrics ? metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent : fontSize * 0.7;
+      const inkTop = metrics
+        ? lettering.offsetTop + (lettering.offsetHeight - metrics.fontBoundingBoxAscent - metrics.fontBoundingBoxDescent) / 2 + metrics.fontBoundingBoxAscent - metrics.actualBoundingBoxAscent
+        : (wordmark.offsetHeight - letterHeight) / 2;
       const imageScale = Math.max(background.clientWidth / 967, background.clientHeight / 533);
       const imageLeft = background.offsetLeft + (background.clientWidth - 967 * imageScale) / 2;
       const imagePosition = parseFloat(getComputedStyle(stage).getPropertyValue("--background-position")) / 100;
@@ -68,7 +79,6 @@ export function ParallaxHero() {
       const textWidth = wordmark.offsetWidth;
       const textLeft = ((stage.clientWidth - textWidth) / 2 - imageLeft) / imageScale;
       const textRight = (stage.clientWidth / 2 + textWidth / 2 - imageLeft) / imageScale;
-      const letterHeight = parseFloat(style.fontSize) * 0.72 * parseFloat(style.getPropertyValue("--wordmark-stretch"));
       const roofHeights = Array.from({ length: 64 }, (_, sample) => {
         const x = Math.max(0, Math.min(967, textLeft + (textRight - textLeft) * (sample + 0.5) / 64));
         const index = Math.max(1, roofline.findIndex(([roofX]) => roofX >= x));
@@ -86,7 +96,11 @@ export function ParallaxHero() {
         else lower = center;
       }
 
-      stage.style.setProperty("--wordmark-top", `${(upper + lower) / 2}px`);
+      // Limit occlusion at the roof peaks so the Go remains recognizable.
+      const center = Math.min((upper + lower) / 2, Math.min(...roofHeights) - letterHeight * 0.18);
+      const masthead = stage.querySelector<HTMLElement>(".scene-masthead");
+      const safeCenter = (masthead?.offsetHeight ?? 84) + 24 + letterHeight / 2;
+      stage.style.setProperty("--wordmark-top", `${Math.max(safeCenter, center) - inkTop - letterHeight / 2 + wordmark.offsetHeight / 2}px`);
       lastProgress = -1;
       schedule();
     }
@@ -98,6 +112,7 @@ export function ParallaxHero() {
     window.addEventListener("scroll", schedule, { passive: true });
     window.addEventListener("resize", measure);
     reducedMotion.addEventListener("change", measure);
+    document.fonts.addEventListener("loadingdone", measure);
     measure();
 
     return () => {
@@ -106,12 +121,21 @@ export function ParallaxHero() {
       window.removeEventListener("scroll", schedule);
       window.removeEventListener("resize", measure);
       reducedMotion.removeEventListener("change", measure);
+      document.fonts.removeEventListener("loadingdone", measure);
     };
   }, []);
 
   return (
-    <section className="parallax-hero" id="hero-scene" aria-label="University campus parallax scene" ref={sectionRef}>
+    <section className="parallax-hero" id="hero-scene" aria-label="InstinctGo — from physical files to verified action" ref={sectionRef}>
       <div className="parallax-stage" ref={stageRef}>
+        <nav className="scene-masthead" aria-label="Introduction">
+          <a className="scene-signature" href="#hero-scene" aria-label="InstinctGo home">
+            <span className="scene-symbol" aria-hidden="true">iG</span>
+            <span>INSTINCTGO<span className="scene-signature-caption">INTELLIGENCE INTO ACTION</span></span>
+          </a>
+          <a className="scene-explore" href="#platform">Explore the platform <ArrowUpRight size={16} aria-hidden="true" /></a>
+        </nav>
+
         <div className="parallax-background" aria-hidden="true" ref={backgroundRef}>
           <Image
             src="/images/hero/background-upscaled.webp"
@@ -125,7 +149,7 @@ export function ParallaxHero() {
         </div>
 
         <div className="parallax-wordmark" aria-hidden="true" ref={wordmarkRef}>
-          <span className="parallax-wordmark-text">INSTINCTGO</span>
+          <span className="parallax-wordmark-text"><span className="wordmark-instinct">INSTINCT</span><span className="wordmark-action"><span className="wordmark-go">Go</span><span className="wordmark-period">.</span></span></span>
         </div>
 
         <div className="parallax-building" aria-hidden="true">
@@ -151,6 +175,11 @@ export function ParallaxHero() {
             unoptimized
             className="parallax-foreground-image"
           />
+        </div>
+
+        <div className="scene-caption">
+          <p>Built for the work.<br /><span>Behind the work.</span></p>
+          <a className="scene-scroll" href="#platform"><span>FROM PAPER<br />TO POSSIBILITY</span><span className="scene-scroll-icon"><ArrowDown size={18} aria-hidden="true" /></span></a>
         </div>
       </div>
     </section>

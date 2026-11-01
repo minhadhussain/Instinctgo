@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Playfair_Display, Poppins } from "next/font/google";
+import { Barlow_Condensed, Playfair_Display, Poppins } from "next/font/google";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -16,6 +16,13 @@ const playfairDisplay = Playfair_Display({
   variable: "--font-playfair",
 });
 
+const barlowCondensed = Barlow_Condensed({
+  subsets: ["latin"],
+  weight: "600",
+  display: "swap",
+  variable: "--font-display",
+});
+
 export const metadata: Metadata = {
   title: "InstinctGo — From physical files to verified action",
   description:
@@ -24,7 +31,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${poppins.variable} ${playfairDisplay.variable}`}>
+    <html lang="en" className={`${poppins.variable} ${playfairDisplay.variable} ${barlowCondensed.variable}`}>
       <body>{children}</body>
     </html>
   );
