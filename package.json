@@ -1,0 +1,26 @@
+{
+  "name": "instinctgo",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "frontend"
+  ],
+  "engines": {
+    "node": ">=22.19.0",
+    "npm": ">=10"
+  },
+  "scripts": {
+    "dev": "concurrently --kill-others --names backend,frontend --prefix-colors cyan,green \"npm:dev:backend\" \"npm:dev:frontend\"",
+    "dev:frontend": "npm run dev --workspace @instinctgo/frontend",
+    "dev:backend": "uv run --directory backend uvicorn app.main:app --reload --host 127.0.0.1 --port 8000",
+    "build": "npm run build --workspace @instinctgo/frontend",
+    "lint:frontend": "npm run lint --workspace @instinctgo/frontend",
+    "lint:backend": "uv run --project backend ruff check backend",
+    "typecheck": "npm run typecheck --workspace @instinctgo/frontend",
+    "db:migrate": "uv run --directory backend alembic upgrade head",
+    "worker": "uv run --directory backend arq app.workers.settings.WorkerSettings"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  }
+}

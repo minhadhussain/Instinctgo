@@ -1,0 +1,1 @@
+"""InstinctGo backend application."""

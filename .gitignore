@@ -1,0 +1,32 @@
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# Local runtime files
+backend/data/*
+!backend/data/.gitkeep
+backend/storage/uploads/*
+!backend/storage/uploads/.gitkeep
+*.log
+.DS_Store
+.idea/
