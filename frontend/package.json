@@ -7,12 +7,18 @@
     "build": "next build",
     "start": "next start --hostname 127.0.0.1",
     "lint": "eslint .",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "test:playground": "tsx --test tests/playground.test.ts"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.2",
+    "@tiptap/pm": "^3.32.2",
+    "@tiptap/react": "^3.32.2",
+    "@tiptap/starter-kit": "^3.32.2",
     "clsx": "^2.1.1",
+    "docx": "^9.15.1",
+    "jspdf": "^4.2.1",
     "lucide-react": "^1.65.0",
     "next": "^16.4.3",
     "react": "^19.3.1",
@@ -29,6 +35,7 @@
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.4.3",
     "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.3"
   }
 }

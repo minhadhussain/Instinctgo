@@ -3,7 +3,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   Building2,
-  Check,
   FileCheck2,
   Focus,
   Landmark,
@@ -11,7 +10,7 @@ import {
   Workflow,
 } from "lucide-react";
 
-import { WorkspacePreview } from "@/components/landing/workspace-preview";
+import { AdministrativePlayground } from "@/components/playground/administrative-playground";
 import { ParallaxHero } from "@/components/landing/parallax-hero";
 
 const steps = [
@@ -71,17 +70,12 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="workspace-section page-width" id="workspace" aria-label="Digital Green Sheet workspace preview">
+        <section className="workspace-section page-width" id="workspace" aria-label="Digital Green Sheet administrative playground">
           <div className="workspace-caption">
-            <div><span className="caption-line" /> YOUR DIGITAL GREEN SHEET</div>
-            <span>One file. The full story. Every next step.</span>
+            <div><span className="caption-line" /> DIGITAL GREEN SHEET</div>
+            <span>Playground</span>
           </div>
-          <WorkspacePreview />
-          <div className="workspace-proof">
-            <span><Check size={14} aria-hidden="true" /> Evidence beside every decision</span>
-            <span><Check size={14} aria-hidden="true" /> Your authority. Connected action.</span>
-            <span><Check size={14} aria-hidden="true" /> A traceable path from file to receipt</span>
-          </div>
+          <AdministrativePlayground />
         </section>
 
         <section className="how-section page-width" id="how-it-works" aria-labelledby="how-title">
