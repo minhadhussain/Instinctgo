@@ -2,7 +2,7 @@ from typing import Any
 from uuid import UUID
 
 from app.agents.graph import draft_workflow
-from app.db.session import SessionFactory
+from app.db.session import session_factory
 from app.schemas.workflow import WorkflowCreate
 from app.services.workflow import WorkflowService
 
@@ -14,7 +14,7 @@ async def draft_and_save_workflow(ctx: dict[str, Any], process_description: str)
     Enqueue with a UUID string as _job_id; see backend/README.md.
     """
     workflow_id = UUID(ctx["job_id"])
-    async with SessionFactory() as session:
+    async with session_factory()() as session:
         service = WorkflowService(session)
         existing = await service.get(workflow_id)
         if existing is not None:

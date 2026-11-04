@@ -1,6 +1,6 @@
 # InstinctGo backend
 
-Python 3.11+, FastAPI, Pydantic, SQLAlchemy, Alembic, LangGraph, and ARQ.
+Python 3.12, FastAPI, Pydantic, SQLAlchemy, Alembic, LangGraph, and ARQ.
 
 ## Run locally
 
@@ -67,7 +67,9 @@ AI credentials are loaded server-side from `backend/.env`. The default model is
 The noting endpoint accepts `title`, `proposal_id`, `proposal_text` and optional
 `supporting_documents` (`id`, `title`, `text`). Combined text is limited to 200,000 characters.
 It uses the reviewed format guide and GPF/consultancy provisions in `samples/noting-library.json`.
-Deploy the repository's `samples/` folder beside `backend/`; registered source PDFs must be present.
+Vercel's backend build packages the library and registered source PDFs under `resources/noting/`.
+Other deployments can run `python scripts/prepare-vercel.py` or keep the repository's `samples/`
+folder beside `backend/`. See `../docs/vercel-deployment.md` for service configuration.
 
 Responses include note paragraphs, evidenced facts, relevant rule IDs, findings and format-source
 pages. Fact values and evidence must occur in the named source; rule IDs must match the request

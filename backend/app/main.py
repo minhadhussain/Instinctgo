@@ -1,12 +1,13 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging
-from app.db.session import engine
+from app.db.session import DatabaseNotConfiguredError, dispose_engine
 
 settings = get_settings()
 
@@ -15,7 +16,7 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     configure_logging(settings.log_level)
     yield
-    await engine.dispose()
+    await dispose_engine()
 
 
 app = FastAPI(
@@ -33,3 +34,8 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 app.include_router(api_router, prefix=settings.api_v1_prefix)
+
+
+@app.exception_handler(DatabaseNotConfiguredError)
+async def database_not_configured(request: Request, exc: DatabaseNotConfiguredError):
+    return JSONResponse(status_code=503, content={"detail": str(exc)})

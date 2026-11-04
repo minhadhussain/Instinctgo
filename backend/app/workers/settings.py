@@ -4,7 +4,7 @@ from arq.connections import RedisSettings
 
 from app.core.config import get_settings
 from app.core.logging import configure_logging
-from app.db.session import engine
+from app.db.session import dispose_engine
 from app.workers.tasks import draft_and_save_workflow
 
 
@@ -13,7 +13,7 @@ async def startup(ctx: dict[str, Any]) -> None:
 
 
 async def shutdown(ctx: dict[str, Any]) -> None:
-    await engine.dispose()
+    await dispose_engine()
 
 
 class WorkerSettings:

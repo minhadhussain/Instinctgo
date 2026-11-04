@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     app_name: str = "InstinctGo API"
     app_env: Literal["development", "test", "production"] = "development"
     debug: bool = False
+    vercel: bool = False
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     api_v1_prefix: str = "/api/v1"
     cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]

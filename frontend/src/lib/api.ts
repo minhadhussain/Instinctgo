@@ -1,4 +1,6 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+// Browser requests always use this deployment's origin. Only the runtime route
+// handler knows the internal backend binding URL.
+const API_URL = "/api/v1";
 
 export function apiUrl(path: string) {
   return `${API_URL.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;

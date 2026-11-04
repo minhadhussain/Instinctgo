@@ -19,7 +19,13 @@ from app.schemas.noting import (
 )
 
 logger = structlog.get_logger(__name__)
-LIBRARY_PATH = BACKEND_DIR.parent / "samples" / "noting-library.json"
+PACKAGED_SOURCES = BACKEND_DIR / "resources" / "noting"
+SOURCE_DIR = (
+    PACKAGED_SOURCES
+    if (PACKAGED_SOURCES / "noting-library.json").is_file()
+    else BACKEND_DIR.parent / "samples"
+)
+LIBRARY_PATH = SOURCE_DIR / "noting-library.json"
 MONEY = re.compile(
     r"(?:₹|\bINR\b|\bRs\.?)[ \t]*(?:\d{1,3}(?:[, ]\d{2,3})+|\d+)"
     r"(?:\.\d{1,2})?(?:[ \t]*(?:lakhs?|lacs?|crores?|thousand))?(?![A-Za-z0-9,]|\.\d)",
@@ -30,11 +36,11 @@ MONEY = re.compile(
 @lru_cache(maxsize=1)
 def load_note_library() -> dict:
     library = json.loads(LIBRARY_PATH.read_text(encoding="utf-8"))
-    source = BACKEND_DIR.parent / "samples" / library["formatSource"]
+    source = SOURCE_DIR / library["formatSource"]
     if not source.is_file():
         raise ValueError("The configured note-format example is missing")
     for book in library["rulebooks"].values():
-        if not (BACKEND_DIR.parent / "samples" / book["path"]).is_file():
+        if not (SOURCE_DIR / book["path"]).is_file():
             raise ValueError("A configured rulebook is missing")
     return library
 

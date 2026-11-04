@@ -8,7 +8,9 @@ npm run dev:frontend
 ```
 
 Open http://localhost:3000. Environment settings belong in `.env.local`; copy `.env.example`
-on first setup. `NEXT_PUBLIC_API_URL` points to the FastAPI versioned API.
+on first setup. Browser API calls use same-origin `/api/v1/*`. A runtime Next.js handler
+uses Vercel's injected `BACKEND_URL`, or `LOCAL_BACKEND_URL` for standalone local development.
+`NEXT_PUBLIC_API_URL` is no longer used. See `../docs/vercel-deployment.md` for deployment.
 
 ## Structure
 

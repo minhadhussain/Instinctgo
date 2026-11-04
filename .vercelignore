@@ -1,0 +1,15 @@
+.git
+node_modules
+**/node_modules
+**/.next
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/.env
+**/.env.*
+**/*.log
+backend/data
+backend/storage/uploads
+backend/resources/noting
+frontend/public/document-workers

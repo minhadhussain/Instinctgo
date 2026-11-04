@@ -44,7 +44,7 @@ instinctgo/
 
 ## Quick start
 
-Requirements: Python 3.11+, uv, Node.js 22.19+, and npm 10+.
+Requirements: Python 3.12 (selected by `backend/.python-version`), uv, Node.js 22.19+, and npm 10+.
 
 Dependencies and local environment files are created during initial setup. To reinstall:
 
@@ -89,3 +89,12 @@ npm run build
 See [backend setup](backend/README.md), [frontend setup](frontend/README.md), and
 [architecture](docs/architecture.md) for details. PostgreSQL and Redis clients are installed;
 configure an existing service when those features are needed.
+
+## Vercel deployment
+
+The root `vercel.json` deploys a public Next.js `frontend` and an internal FastAPI `backend`
+as one project. The frontend's `/api/v1/*` route uses Vercel's runtime `BACKEND_URL` binding;
+the browser always uses the site's own domain. Vercel hosts both services independently of
+your computer. Import the repository with Root Directory `.`.
+
+See [deployment setup, environment variables and verification](docs/vercel-deployment.md).
