@@ -19,8 +19,10 @@ globalThis.onmessage = async ({ data }) => {
       });
     }
     const worker = await engine;
-    const result = await worker.recognize(data.image, { rotateAuto: true }, { text: true });
-    globalThis.postMessage({ id: data.id, type: "result", text: result.data.text });
+    const result = await worker.recognize(data.image, { rotateAuto: true }, { text: true, blocks: true });
+    const paragraphs = (result.data.blocks ?? []).flatMap((block) => (block.paragraphs ?? []).map((paragraph) => paragraph.text));
+    const lines = (result.data.blocks ?? []).flatMap((block) => (block.paragraphs ?? []).flatMap((paragraph) => (paragraph.lines ?? []).map((line) => ({ text: line.text, y: (line.bbox.y0 + line.bbox.y1) / 2, height: line.bbox.y1 - line.bbox.y0 }))));
+    globalThis.postMessage({ id: data.id, type: "result", text: result.data.text, paragraphs, lines });
   } catch (error) {
     globalThis.postMessage({ id: data.id, type: "error", message: error instanceof Error ? error.message : String(error) });
   }

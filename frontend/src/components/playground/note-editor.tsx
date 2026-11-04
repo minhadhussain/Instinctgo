@@ -21,7 +21,7 @@ export function NoteEditor({ item, state, editable, documents, onChange, onPrevi
   const editor = useEditor({
     extensions: [StarterKit.configure({ heading: { levels: [2, 3] }, link: { openOnClick: false, autolink: false } }), FontSize, TableKit.configure({ table: { resizable: false, cellMinWidth: 50 } })],
     immediatelyRender: false, shouldRerenderOnTransaction: true, content: state.html, editable,
-    editorProps: { attributes: { class: "pg-rich-editor pg-finance-text", "aria-label": proposal ? "Proposal text editor" : "Finance note editor", role: "textbox", "aria-multiline": "true" } },
+    editorProps: { attributes: { class: `pg-rich-editor pg-finance-text${proposal ? " pg-proposal-text" : ""}`, "aria-label": proposal ? "Proposal text editor" : "Finance note editor", role: "textbox", "aria-multiline": "true" } },
     onUpdate: ({ editor }) => onChange(editor.getHTML(), editor.getText()),
   }, [item.id, state.draftKind]);
   useEffect(() => { if (editor && editor.getHTML() !== state.html) editor.commands.setContent(state.html, { emitUpdate: false }); }, [editor, state.html]);

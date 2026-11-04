@@ -1,4 +1,4 @@
-import { finishExtraction, pdfTextLines, type ExtractedDocument, type ExtractedPage, type ExtractionProgress } from "./document-text";
+import { finishExtraction, ocrParagraphText, pdfTextLines, type ExtractedDocument, type ExtractedPage, type ExtractionProgress } from "./document-text";
 
 interface Options { signal: AbortSignal; onProgress: (progress: ExtractionProgress) => void }
 const assets = "/document-workers/";
@@ -21,7 +21,7 @@ class BrowserOcr {
     this.worker.onmessage = ({ data }) => {
       const pending = this.pending;
       if (!pending || data.id !== pending.id) return;
-      if (data.type === "result") { this.pending = undefined; pending.resolve(data.text); }
+      if (data.type === "result") { this.pending = undefined; pending.resolve(ocrParagraphText(data.text, data.paragraphs, data.lines)); }
       else if (data.type === "error") { this.pending = undefined; pending.reject(new Error(`OCR failed: ${data.message}`)); }
       else if (data.type === "progress") pending.progress(data.status === "recognizing text" ? 0.3 + data.progress * 0.7 : Math.min(0.25, data.progress * 0.25), data.status === "recognizing text" ? "Recognising text" : "Loading English OCR");
     };

@@ -18,22 +18,62 @@ export function finishExtraction(pages: ExtractedPage[], method: ExtractedDocume
   return { text, pages: normalized, method };
 }
 
-/** Keep PDF text runs on their original lines, including runs split by font changes. */
+export interface PositionedTextLine { text: string; y: number; height: number }
+
+function textWithParagraphGaps(lines: PositionedTextLine[], maxLineSpacing: number) {
+  const gaps = lines.slice(1).map((line, index) => Math.abs(line.y - lines[index].y)).filter((gap) => gap > 2).sort((a, b) => a - b);
+  // Estimate ordinary line spacing without treating large paragraph gaps as
+  // the default. Cap it for pages consisting of single-line paragraphs.
+  const ordinaryGap = gaps[Math.floor((gaps.length - 1) / 4)] ?? 0;
+  return lines.map((line, index) => {
+    if (!index) return line.text;
+    const previous = lines[index - 1];
+    const height = Math.max(previous.height, line.height);
+    const lineSpacing = Math.min(ordinaryGap || height * 1.2, height * maxLineSpacing);
+    const paragraphGap = Math.abs(line.y - previous.y) > Math.max(lineSpacing * 1.4, height * 1.6);
+    return `${paragraphGap ? "\n\n" : "\n"}${line.text}`;
+  }).join("");
+}
+
+/** Restore OCR paragraph boundaries only when they preserve all recognized text. */
+export function ocrParagraphText(text: string, paragraphs: string[] = [], lines: PositionedTextLine[] = []) {
+  const spaced = paragraphs.map(normalizeDocumentText).filter(Boolean).join("\n\n");
+  const characters = (value: string) => value.replace(/\s/g, "");
+  const positioned = lines.filter((line) => line.text.trim() && Number.isFinite(line.y) && line.height > 0).map((line) => ({ ...line, text: normalizeDocumentText(line.text) }));
+  // OCR paragraph labels can span a visible blank gap. Line coordinates retain
+  // that gap without splitting ordinary wrapped lines into separate paragraphs.
+  const layoutText = textWithParagraphGaps(positioned, 2);
+  if (layoutText && characters(layoutText) === characters(text)) return normalizeDocumentText(layoutText);
+  return normalizeDocumentText(spaced && characters(spaced) === characters(text) ? spaced : text);
+}
+
+/** Keep font-split words together and use page geometry to retain paragraph gaps. */
 export function pdfTextLines(items: { str: string; hasEOL?: boolean; transform: number[]; width: number; height: number }[]) {
-  let text = "";
+  const lines: PositionedTextLine[] = [];
+  let line: typeof lines[number] | undefined;
   let previous: typeof items[number] | undefined;
+  const flush = () => {
+    if (line?.text.trim()) lines.push(line);
+    line = undefined;
+    previous = undefined;
+  };
   for (const item of items) {
-    if (previous && !text.endsWith("\n")) {
-      const newLine = Math.abs(item.transform[5] - previous.transform[5]) > Math.max(2, item.height * 0.5);
+    // PDF.js emits empty end-of-line markers as well as visible text runs.
+    if (!item.str) { if (item.hasEOL) flush(); continue; }
+    const height = item.height || Math.hypot(item.transform[2], item.transform[3]) || 12;
+    if (line && Math.abs(item.transform[5] - line.y) > Math.max(2, height * 0.5, line.height * 0.5)) flush();
+    line ??= { text: "", y: item.transform[5], height };
+    if (previous) {
       const gap = item.transform[4] - (previous.transform[4] + previous.width);
-      if (newLine) text += "\n";
-      else if (gap > Math.max(1, item.height * 0.1) && !/\s$/.test(text) && !/^\s/.test(item.str)) text += " ";
+      if (gap > Math.max(1, height * 0.1) && !/\s$/.test(line.text) && !/^\s/.test(item.str)) line.text += " ";
     }
-    text += item.str;
-    if (item.hasEOL) text += "\n";
+    line.text += item.str;
+    line.height = Math.max(line.height, height);
     previous = item;
+    if (item.hasEOL) flush();
   }
-  return normalizeDocumentText(text);
+  flush();
+  return normalizeDocumentText(textWithParagraphGaps(lines, 1.5));
 }
 
 export function applyExtractedText(item: CaseDefinition, state: CaseState, result: ExtractedDocument, now: string): { item: CaseDefinition; state: CaseState } {

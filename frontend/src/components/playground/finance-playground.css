@@ -191,6 +191,9 @@
 .pg-finance .pg-note-kicker { flex-wrap: wrap; }
 .pg-finance .pg-note-reference { margin-bottom: 24px; }
 #workspace .pg-finance-text { font-size: 16px; line-height: 1.85; color: #292e37; }
+#workspace .pg-finance .pg-proposal-text { line-height: 1.9; }
+#workspace .pg-proposal-text > p { margin: 0 0 1.25em; }
+#workspace .pg-proposal-text > p:last-child { margin-bottom: 0; }
 #workspace .pg-finance-text h2 { font-size: 24px; font-weight: 600; line-height: 1.5; }
 #workspace .pg-finance-text h3 { font-size: 17px; font-weight: 600; line-height: 1.6; }
 #workspace .pg-finance-text em, #workspace .pg-finance-text em * { font-style: italic; }

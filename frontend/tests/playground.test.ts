@@ -9,7 +9,7 @@ import type { CaseState, Role, WorkflowAction } from "../src/lib/playground/type
 import { createImportedCase, MAX_DOCUMENT_SIZE, validateDocument } from "../src/lib/playground/intake";
 import { findRuleMatches, rulePhrases } from "../src/lib/playground/rule-matches";
 import { canApproveNote, performFinanceAction } from "../src/lib/playground/finance-actions";
-import { applyExtractedText, finishExtraction, MAX_TEXT_CHARACTERS, pdfTextLines } from "../src/lib/playground/document-text";
+import { applyExtractedText, finishExtraction, MAX_TEXT_CHARACTERS, ocrParagraphText, pdfTextLines } from "../src/lib/playground/document-text";
 import { convertGpfProposal, gpfProposalText, gpfRules, parseGpfProposal, renderGpfNote } from "../src/lib/playground/gpf-case";
 import { applyDraftNote, buildLocalNote, classifyProposal, factIsGrounded, moneyValue, noteInput, type NoteInput } from "../src/lib/playground/note-draft";
 import { requestNoteDraft } from "../src/lib/playground/note-service";
@@ -240,6 +240,43 @@ test("PDF extraction keeps font-split words together and preserves line and page
 test("empty and oversized extraction results are reported rather than silently truncated", () => {
   assert.throws(() => finishExtraction([{ page: 1, text: " \n\u0000", ocr: true }], "OCR"), /No readable text/);
   assert.throws(() => finishExtraction([{ page: 1, text: "x".repeat(MAX_TEXT_CHARACTERS + 1), ocr: false }], "Text"), /200,000 characters/);
+});
+
+test("PDF paragraph gaps survive line-end markers, wrapping and font changes", () => {
+  const run = (str: string, x: number, y: number, width: number, hasEOL = false) => ({ str, transform: [1, 0, 0, 1, x, y], width, height: 12, hasEOL });
+  const text = pdfTextLines([
+    run("Subject: Refund request", 20, 720, 150, true),
+    run("I request a refund of INR 4500", 20, 684, 200, true),
+    run("paid twice for the examination.", 20, 668, 200, true),
+    run("Please verify the pay", 20, 632, 100), run("ment receipts.", 120, 632, 80),
+    run("", 200, 632, 0, true), run("Both transactions are listed below.", 20, 616, 210, true),
+  ]);
+  assert.equal(text, "Subject: Refund request\n\nI request a refund of INR 4500\npaid twice for the examination.\n\nPlease verify the payment receipts.\nBoth transactions are listed below.");
+  const bytes = new TextEncoder().encode(text);
+  const item = createImportedCase({ name: "proposal.txt", type: "text/plain", size: bytes.length }, bytes.buffer, "blob:paragraphs", "FIN-SPACING", now);
+  const converted = applyExtractedText(item, initialCaseState(item), finishExtraction([{ page: 1, text, ocr: false }], "PDF"), now);
+  assert.equal((converted.state.html.match(/<p>/g) ?? []).length, 3);
+  assert.match(converted.state.html, /INR 4500<br>paid twice/);
+  assert.equal(converted.state.text, text);
+});
+
+test("OCR restores recognized paragraph spacing without discarding unmatched text", () => {
+  const raw = "To the Registrar\nRefund request\nI paid INR 4500 twice.\nPlease verify both receipts.\nYours faithfully,\nRiya Nath\n";
+  const paragraphs = ["To the Registrar\nRefund request\n", "I paid INR 4500 twice.\nPlease verify both receipts.\n", "Yours faithfully,\nRiya Nath\n"];
+  const spaced = ocrParagraphText(raw, paragraphs);
+  assert.equal(spaced, "To the Registrar\nRefund request\n\nI paid INR 4500 twice.\nPlease verify both receipts.\n\nYours faithfully,\nRiya Nath");
+  assert.equal(spaced.replace(/\s/g, ""), raw.replace(/\s/g, ""));
+  assert.equal(ocrParagraphText(raw, paragraphs.slice(0, 2)), raw.trim());
+  assert.equal(ocrParagraphText(raw), raw.trim());
+  const lines = [
+    { text: "I paid INR 4500 twice.", y: 200, height: 25 },
+    { text: "Please verify both receipts.", y: 245, height: 25 },
+    { text: "Yours faithfully,", y: 380, height: 25 },
+    { text: "Riya Nath", y: 425, height: 25 },
+  ];
+  const merged = lines.map((line) => line.text).join("\n");
+  assert.equal(ocrParagraphText(merged, [merged], lines), "I paid INR 4500 twice.\nPlease verify both receipts.\n\nYours faithfully,\nRiya Nath");
+  assert.equal(ocrParagraphText(raw, paragraphs, lines), spaced, "Incomplete layout data falls back to the complete recognized paragraphs");
 });
 
 function extractedGpf(text = gpfProposalText) {
