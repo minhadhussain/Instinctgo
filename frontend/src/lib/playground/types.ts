@@ -52,7 +52,7 @@ export interface CaseDefinition {
   caseTemplateId?: string;
 }
 
-export interface NoteVersion { id: number; label: string; html: string; text: string; date: string; author: Role | "Simulated AI" | "Browser extraction" | "Case template" }
+export interface NoteVersion { id: number; label: string; html: string; text: string; date: string; author: Role | "Simulated AI" | "Browser extraction" | "Case template" | "Local drafting" | "AI drafting" }
 export interface Movement { id: number; officer: Role; date: string; action: string; remarks: string; previous: CaseStatus; next: CaseStatus; from: Role; to: Role; version: number }
 export interface CaseComment { id: number; author: Role; date: string; text: string }
 export interface CaseState {
@@ -74,6 +74,7 @@ export interface CaseState {
   draftKind?: "proposal" | "note";
   proposalDraft?: { html: string; text: string; savedAt: string };
   appliedRuleIds?: string[];
+  generation?: { engine: "local" | "ai"; styleSources: { path: string; pages: number[]; title: string }[]; missingInformation: string[] };
 }
 
 export type WorkflowAction = "submit" | "forward" | "return" | "approve" | "reject" | "close";

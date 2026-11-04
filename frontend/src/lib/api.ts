@@ -1,7 +1,11 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
 
+export function apiUrl(path: string) {
+  return `${API_URL.replace(/\/$/, "")}/${path.replace(/^\//, "")}`;
+}
+
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_URL.replace(/\/$/, "")}/${path.replace(/^\//, "")}`, {
+  const response = await fetch(apiUrl(path), {
     ...init,
     headers: {
       Accept: "application/json",

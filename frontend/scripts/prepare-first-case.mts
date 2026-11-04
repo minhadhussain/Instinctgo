@@ -8,6 +8,7 @@ import { drawDocumentPdf } from "../src/lib/playground/document-pdf";
 
 const samples = fileURLToPath(new URL("../../samples/case-01/", import.meta.url));
 const served = fileURLToPath(new URL("../public/samples/case-01/", import.meta.url));
+const library = JSON.parse(await readFile(new URL("../../samples/noting-library.json", import.meta.url), "utf8")) as { rulebooks: Record<string, { path: string; url: string }> };
 await Promise.all([mkdir(join(samples, "proposals"), { recursive: true }), mkdir(join(samples, "notes"), { recursive: true }), mkdir(served, { recursive: true })]);
 const rulePath = join(samples, "rules/GPF-RULE-FINAL.pdf");
 const ruleBytes = await readFile(rulePath);
@@ -28,6 +29,13 @@ await Promise.all([
   copyFile(noteFile, join(served, "gpf-advance-note.pdf")),
   copyFile(rulePath, join(served, "gpf-rules-2013.pdf")),
 ]);
+const ruleSources = await Promise.all(Object.entries(library.rulebooks).map(async ([id, book]) => {
+  const source = new URL(`../../samples/${book.path}`, import.meta.url);
+  const target = fileURLToPath(new URL(`../public${book.url}`, import.meta.url));
+  await copyFile(source, target);
+  return { id, path: book.path, url: book.url, sha256: createHash("sha256").update(await readFile(source)).digest("hex") };
+}));
+await writeFile(new URL("../../samples/noting-source-manifest.json", import.meta.url), JSON.stringify({ ruleSources }, null, 2) + "\n");
 await writeFile(join(samples, "case-manifest.json"), JSON.stringify({
   topic: "Refundable GPF advance for a dependent child's higher education",
   rules: "rules/GPF-RULE-FINAL.pdf",

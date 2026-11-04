@@ -1,0 +1,16 @@
+{
+  "ruleSources": [
+    {
+      "id": "gpf",
+      "path": "case-01/rules/GPF-RULE-FINAL.pdf",
+      "url": "/samples/case-01/gpf-rules-2013.pdf",
+      "sha256": "500180587d751088ebeffb360506ea06ce60a684b3dfa3952d433f0431ca7222"
+    },
+    {
+      "id": "consultancy",
+      "path": "case-01/rules/Consultancy-Service-Rules-of-Dibrugarh-University.pdf",
+      "url": "/samples/case-01/consultancy-service-rules.pdf",
+      "sha256": "1578827b78d33ac5ef2f8a3df7bb86a5327969b0eeb056bb15e23c3b5bf9dcd5"
+    }
+  ]
+}

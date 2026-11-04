@@ -40,9 +40,9 @@ This is a refundable advance under Rule 12. The Rule 13 withdrawal service condi
 
 ## Generation contract
 
-The first-case template reads the labelled fields from the reviewed proposal text, rather than selecting a note based on the filename. Missing, conflicting or unsupported fields produce an error while preserving the proposal. The prescribed eligibility declarations, 50% ceiling, no-outstanding-advance condition and equal-instalment arithmetic are checked before the note is prepared. This is a local, bounded template for this case, not a general-purpose note-generation model.
+The fixed reference-artifact template reads the labelled fields from this proposal and validates its eligibility declarations, ceiling, outstanding advance and recovery arithmetic. The live workspace now uses the broader example-based drafter in `note-draft.ts` for all new uploads, including this sample. It produces examination/clarification notes for incomplete proposals, and optionally uses backend AI when configured. Its wording may differ from the fixed reference PDF. See `../README.md` for the shared note/rule library and the added consultancy rulebook.
 
-Generated files are produced by the same template used by the frontend:
+Regenerate the fixed reference files and served rulebooks:
 
 ```sh
 npm run prepare:case --workspace @instinctgo/frontend

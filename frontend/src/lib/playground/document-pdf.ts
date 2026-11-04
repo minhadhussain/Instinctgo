@@ -6,7 +6,7 @@ export function drawDocumentPdf(pdf: jsPDF, title: string, subtitle: string, blo
   const width = pdf.internal.pageSize.getWidth() - margin * 2;
   const bottom = pdf.internal.pageSize.getHeight() - 21;
   let y = 20;
-  const printable = (text: string) => text.replace(/₹/g, "INR ").replace(/[–—]/g, "-").replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/→/g, "to").replace(/×/g, "x");
+  const printable = (text: string) => text.replace(/₹/g, "INR ").replace(/[–—]/g, "-").replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/…/g, "...").replace(/→/g, "to").replace(/×/g, "x");
   function header(continued: boolean) {
     pdf.setFont("helvetica", "bold"); pdf.setFontSize(13);
     pdf.text(printable(title), margin, 20);

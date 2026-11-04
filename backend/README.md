@@ -41,6 +41,8 @@ SQLite is the zero-service development default. Its path is always relative to `
 - `GET /api/v1/health` — process liveness.
 - `GET /api/v1/health/ready` — database connectivity.
 - `POST /api/v1/workflows/draft` — AI-generated workflow plan; requires `OPENAI_API_KEY`.
+- `GET /api/v1/noting/capabilities` — whether server-side AI drafting is configured.
+- `POST /api/v1/noting/draft` — structured finance note from reviewed proposal text.
 - `POST /api/v1/workflows` — validate and persist a draft.
 - `GET /api/v1/workflows?limit=20&offset=0` — list saved drafts.
 - `GET /api/v1/workflows/{id}` — fetch a saved draft.
@@ -59,6 +61,25 @@ and `depends_on`. Dependencies must reference earlier steps in the plan.
 
 AI credentials are loaded server-side from `backend/.env`. The default model is
 `gpt-4.1-mini`; change `OPENAI_MODEL` to a model available to your account.
+
+### Proposal noting
+
+The noting endpoint accepts `title`, `proposal_id`, `proposal_text` and optional
+`supporting_documents` (`id`, `title`, `text`). Combined text is limited to 200,000 characters.
+It uses the reviewed format guide and GPF/consultancy provisions in `samples/noting-library.json`.
+Deploy the repository's `samples/` folder beside `backend/`; registered source PDFs must be present.
+
+Responses include note paragraphs, evidenced facts, relevant rule IDs, findings and format-source
+pages. Fact values and evidence must occur in the named source; rule IDs must match the request
+category and institution. Monetary output is checked against source amounts and permitted
+calculations. This validation supports human review; it does not verify every narrative assertion.
+
+Without `OPENAI_API_KEY`, the draft endpoint returns 503 with `ai_not_configured`; the frontend
+prepares a labelled local draft instead. Provider/validation failures return 502 and also use
+the local fallback. AI drafting sends reviewed text to the configured provider and does not
+persist or approve the note. Restart the backend after changing the cached note library.
+
+Run `uv run --directory backend pytest -q` from the repository root for the noting API tests.
 
 ## PostgreSQL and Redis
 

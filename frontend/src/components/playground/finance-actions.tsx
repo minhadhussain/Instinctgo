@@ -13,10 +13,11 @@ interface Props {
   onSave: () => void; onHistory: () => void; onExport: (format: "docx" | "pdf") => void;
   onTextDownload?: () => void;
   onConvertToNote?: () => void;
+  preparingNote?: boolean;
   onAction: (action: WorkflowAction, remarks: string, verified: boolean, name: string) => string | undefined;
 }
 
-export function FinanceActions({ item, state, role, editable, exporting, onSave, onHistory, onExport, onTextDownload, onConvertToNote, onAction }: Props) {
+export function FinanceActions({ item, state, role, editable, exporting, onSave, onHistory, onExport, onTextDownload, onConvertToNote, preparingNote = false, onAction }: Props) {
   const bar = useRef<HTMLDivElement>(null);
   const [action, setAction] = useState<WorkflowAction | null>(null);
   const [remarks, setRemarks] = useState("");
@@ -45,7 +46,7 @@ export function FinanceActions({ item, state, role, editable, exporting, onSave,
   return <>
     <div ref={bar} className="pg-finance-actions" onKeyDown={(event) => { const menu = (event.target as HTMLElement).closest("details"); if (event.key === "Escape" && menu?.open) { event.preventDefault(); event.stopPropagation(); menu.open = false; menu.querySelector("summary")?.focus(); } }}>
       <div className="pg-secondary-actions">{editable ? <button className="pg-button" onClick={onSave}><Save size={15} />{proposal ? "Save text" : "Save note"}</button> : <span className="pg-action-status">{item.historical ? "Archived · Read-only" : state.status === "Closed" ? "Completed" : `With ${assigned}`}</span>}<details className="pg-action-menu" name="pg-workspace-actions"><summary className="pg-button pg-quiet-button" aria-label="More actions"><MoreHorizontal size={18} /><span>More actions</span></summary><div onClick={closeMenu}><button onClick={onHistory}><History size={15} />Versions & activity</button>{canAct && state.level > 0 && <button onClick={() => open("return")}>Return for clarification</button>}{canApprove && <button onClick={() => open("reject")}>Record rejection</button>}</div></details></div>
-      <div className="pg-primary-actions"><details className="pg-action-menu" name="pg-workspace-actions"><summary className="pg-button"><Download size={16} />{exporting ? "Preparing…" : "Download"}<ChevronDown size={13} /></summary><div onClick={closeMenu}><button disabled={exporting} onClick={() => onExport("docx")}>Word document (.docx)</button><button disabled={exporting} onClick={() => onExport("pdf")}>PDF document (.pdf)</button>{onTextDownload && <button disabled={exporting} onClick={onTextDownload}>Plain text (.txt)</button>}</div></details>{proposal && onConvertToNote ? <button className="pg-button pg-primary" disabled={!editable || !state.text.trim()} onClick={onConvertToNote}><FilePenLine size={16} />Convert to note<ArrowRight size={15} /></button> : primary && <button className="pg-button pg-primary" onClick={() => open(primary)}>{primary === "approve" ? <FileSignature size={17} /> : primary === "close" ? <Check size={16} /> : null}{labels[primary]}{primary === "submit" && <ArrowRight size={15} />}</button>}</div>
+      <div className="pg-primary-actions"><details className="pg-action-menu" name="pg-workspace-actions"><summary className="pg-button"><Download size={16} />{exporting ? "Preparing…" : "Download"}<ChevronDown size={13} /></summary><div onClick={closeMenu}><button disabled={exporting} onClick={() => onExport("docx")}>Word document (.docx)</button><button disabled={exporting} onClick={() => onExport("pdf")}>PDF document (.pdf)</button>{onTextDownload && <button disabled={exporting} onClick={onTextDownload}>Plain text (.txt)</button>}</div></details>{proposal && onConvertToNote ? <button className="pg-button pg-primary" disabled={!editable || !state.text.trim() || preparingNote} onClick={onConvertToNote}><FilePenLine size={16} />{preparingNote ? "Preparing note…" : "Convert to note"}<ArrowRight size={15} /></button> : primary && <button className="pg-button pg-primary" onClick={() => open(primary)}>{primary === "approve" ? <FileSignature size={17} /> : primary === "close" ? <Check size={16} /> : null}{labels[primary]}{primary === "submit" && <ArrowRight size={15} />}</button>}</div>
     </div>
     {action && <Modal title={labels[action]} onClose={() => setAction(null)}>
       <p className="pg-help">{item.subject} · Acting as {role}</p>

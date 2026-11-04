@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { useLenis } from "lenis/react";
 import { resumePageScroll } from "@/lib/smooth-scroll";
 import { ArrowLeft, ChevronRight, Copy, Eye, FileText, Info, LoaderCircle, Maximize2, Minimize2, X } from "lucide-react";
-import { convertGpfProposal, gpfCase, gpfSample } from "@/lib/playground/gpf-case";
+import { gpfCase, gpfSample } from "@/lib/playground/gpf-case";
+import { applyDraftNote, noteInput } from "@/lib/playground/note-draft";
+import { requestNoteDraft } from "@/lib/playground/note-service";
 import { allRoles, getPath } from "@/lib/playground/hierarchy";
 import { initialCaseState } from "@/lib/playground/workflow";
 import { escapeHtml, exportNote } from "@/lib/playground/renderer";
@@ -38,26 +40,32 @@ export function AdministrativePlayground() {
   const [history, setHistory] = useState(false);
   const [fileDetails, setFileDetails] = useState(false);
   const [proposalPreview, setProposalPreview] = useState(false);
-  const [noteError, setNoteError] = useState("");
+  const [noteErrors, setNoteErrors] = useState<Record<string, string>>({});
+  const [pendingNotes, setPendingNotes] = useState<Record<string, boolean>>({});
   const [expanded, setExpanded] = useState(false);
   const [notice, setNotice] = useState("");
   const [exporting, setExporting] = useState(false);
   const urls = useRef(new Set<string>());
   const conversions = useRef(new Map<string, AbortController>());
+  const noteRequests = useRef(new Map<string, AbortController>());
+  const activeWorkspace = useRef({ page: "intake", id: "" });
   const app = useRef<HTMLDivElement>(null);
   const mounted = useRef(true);
   const item = cases.find((candidate) => candidate.id === selected) ?? gpfCase;
   const state = states[selected] ?? emptyState;
   const job = jobs[selected];
+  const preparingNote = !!pendingNotes[selected];
+  const noteError = noteErrors[selected] ?? "";
   const proposal = state.draftKind === "proposal";
-  const editable = !job && !item.historical && role === "Dealing Assistant" && state.level === 0 && ["AI-generated draft", "Extracted draft", "Generated note", "Human-edited draft", "Returned"].includes(state.status);
+  const editable = !job && !preparingNote && !item.historical && role === "Dealing Assistant" && state.level === 0 && ["AI-generated draft", "Extracted draft", "Generated note", "Human-edited draft", "Returned"].includes(state.status);
   const documents = [...item.documents, ...state.extraDocuments].filter((doc, index, array) => array.findIndex((other) => other.id === doc.id) === index);
 
   useEffect(() => {
     mounted.current = true;
     const owned = urls.current;
     const active = conversions.current;
-    return () => { mounted.current = false; active.forEach((controller) => controller.abort()); active.clear(); owned.forEach((url) => URL.revokeObjectURL(url)); owned.clear(); };
+    const drafting = noteRequests.current;
+    return () => { mounted.current = false; active.forEach((controller) => controller.abort()); active.clear(); drafting.forEach((controller) => controller.abort()); drafting.clear(); owned.forEach((url) => URL.revokeObjectURL(url)); owned.clear(); };
   }, []);
   useEffect(() => {
     if (!notice) return;
@@ -80,15 +88,15 @@ export function AdministrativePlayground() {
   function focusWorkspace() {
     requestAnimationFrame(() => {
       app.current?.scrollTo({ top: 0, behavior: "instant" });
-      if (!expanded && app.current) {
+      if (app.current && !app.current.classList.contains("pg-expanded")) {
         if (lenis) lenis.scrollTo(app.current, { immediate: true });
         else app.current.scrollIntoView({ block: "start", behavior: "instant" });
       }
       app.current?.querySelector<HTMLElement>(".pg-finance-heading h2, .pg-intake-heading h2")?.focus({ preventScroll: true });
     });
   }
-  function openCase(id: string) { setSelected(id); setNoteError(""); if (states[id]?.draftKind === "proposal") setRole("Dealing Assistant"); setPage("editor"); focusWorkspace(); }
-  function openIntake() { setPage("intake"); focusWorkspace(); }
+  function openCase(id: string) { activeWorkspace.current = { page: "editor", id }; setSelected(id); setNoteErrors((previous) => ({ ...previous, [id]: "" })); if (states[id]?.draftKind === "proposal") setRole("Dealing Assistant"); setPage("editor"); focusWorkspace(); }
+  function openIntake() { activeWorkspace.current = { page: "intake", id: selected }; setPage("intake"); focusWorkspace(); }
   async function upload(file: File, progress: (value: number) => void, signal: AbortSignal) {
     const error = validateDocument(file);
     if (error) throw new Error(error);
@@ -143,23 +151,36 @@ export function AdministrativePlayground() {
   }
   function changeNote(html: string, text: string) {
     if (!editable) return;
-    setNoteError("");
+    setNoteErrors((previous) => ({ ...previous, [selected]: "" }));
     const cited = Array.from(html.matchAll(/href="#ref-([^"]+)"/g), (match) => match[1]);
     update((previous) => ({ ...previous, html, text, status: "Human-edited draft", savedAt: new Date().toISOString(), checks: [], extraDocuments: [...previous.extraDocuments, ...documents.filter((doc) => cited.includes(doc.id) && !item.documents.some((source) => source.id === doc.id) && !previous.extraDocuments.some((source) => source.id === doc.id))] }));
   }
   function insertDraft(text: string) {
     changeNote(`${state.html}<p>${escapeHtml(text)}</p>`, `${state.text}\n\n${text}`);
   }
-  function convertToNote() {
-    if (!editable || !proposal) return;
+  async function convertToNote() {
+    if (!editable || !proposal || noteRequests.current.has(selected)) return;
+    const id = selected;
+    const controller = new AbortController(); noteRequests.current.set(id, controller);
+    setPendingNotes((previous) => ({ ...previous, [id]: true }));
+    setNoteErrors((previous) => ({ ...previous, [id]: "" }));
     try {
-      const result = convertGpfProposal(item, state, new Date().toISOString());
-      setCases((previous) => previous.map((candidate) => candidate.id === selected ? result.item : candidate));
-      update(result.state);
-      setNoteError("");
-      setNotice("GPF note prepared from the reviewed proposal text.");
-      focusWorkspace();
-    } catch (error) { setNoteError(error instanceof Error ? error.message : "The note could not be prepared. Review the proposal text and try again."); focusWorkspace(); }
+      const draft = await requestNoteDraft(noteInput(item, state), controller.signal);
+      if (!mounted.current || controller.signal.aborted) return;
+      const result = applyDraftNote(item, state, draft, new Date().toISOString());
+      setCases((previous) => previous.map((candidate) => candidate.id === id ? result.item : candidate));
+      setStates((previous) => ({ ...previous, [id]: result.state }));
+      setNotice(`${draft.engine === "ai" ? "AI" : "Local"} note prepared from your proposal.`);
+      if (activeWorkspace.current.id === id && activeWorkspace.current.page === "editor") focusWorkspace();
+    } catch (error) {
+      if (mounted.current && !controller.signal.aborted) {
+        setNoteErrors((previous) => ({ ...previous, [id]: error instanceof Error ? error.message : "The note could not be prepared. Please try again." }));
+        if (activeWorkspace.current.id === id && activeWorkspace.current.page === "editor") focusWorkspace();
+      }
+    } finally {
+      if (noteRequests.current.get(id) === controller) noteRequests.current.delete(id);
+      if (mounted.current) setPendingNotes((previous) => { const next = { ...previous }; delete next[id]; return next; });
+    }
   }
   function saveDraft() {
     if (!editable) return;
@@ -190,10 +211,11 @@ export function AdministrativePlayground() {
     {page === "intake" ? <DocumentIntake cases={cases} states={states} jobs={jobs} sample={gpfSample} onPreview={setPreview} onUpload={upload} onProcess={(id) => void processDocument(id)} onOpen={openCase} /> : <>
       <div className="pg-finance-heading"><div><div className="pg-document-title"><h2 tabIndex={-1}>{item.subject}</h2>{(!proposal || job) && <Badge tone={status === "Completed" ? "success" : status === "Error" ? "danger" : status === "In Review" ? "warning" : "blue"}>{status}</Badge>}</div><div className="pg-document-tools"><button className="pg-text-button" onClick={() => setPreview(item.documents[0])}><FileText size={14} />View original proposal</button>{state.proposalDraft && <button className="pg-text-button" onClick={() => setProposalPreview(true)}>View proposal text</button>}<button className="pg-text-button" onClick={() => setFileDetails(true)}><Info size={14} />File details</button></div></div>{!job && !proposal && <label className="pg-role-picker"><span>Demo role</span><select aria-label="Demo role" value={role} onChange={(event) => setRole(event.target.value as Role)}>{allRoles.map((value) => <option key={value}>{value}</option>)}</select></label>}</div>
       {job ? <div className="pg-processing-state" role="status">{job.status === "Processing" ? <><LoaderCircle className="pg-spinner" size={32} /><h3>Converting document to text…</h3><p>{job.message}</p><progress className="pg-conversion-progress" max={100} value={job.progress ?? 0} aria-label="Text conversion progress" /><small>{job.progress ?? 0}% · Processing in your browser</small><button className="pg-button" onClick={() => conversions.current.get(item.id)?.abort()}>Cancel conversion</button></> : <><FileText size={32} /><h3>{job.status === "Error" ? "Text conversion failed" : "Your document is ready to convert"}</h3><p>{job.error ?? "Convert the document into editable text in your browser."}</p><div><button className="pg-button" onClick={openIntake}>Back to documents</button><button className="pg-button pg-primary" onClick={() => void processDocument(item.id)}>{job.status === "Error" ? "Retry conversion" : "Convert to text"}</button></div></>}</div> : <>
-        <div className="pg-manual-draft"><span><strong>{proposal ? "1. Review the proposal text" : "2. Finance note prepared"}</strong><small>{proposal ? "Check the extracted text, then choose Convert to note. Your original is preserved." : `${state.appliedRuleIds?.length ?? 0} applied rule entries from the supplied GPF Rules, 2013. The proposal text is preserved separately.`}</small></span><button className="pg-text-button" onClick={() => void copyText()}><Copy size={13} />{proposal ? "Copy text" : "Copy note"}</button></div>
+        <div className="pg-manual-draft"><span><strong>{proposal ? "1. Review the proposal text" : "2. Finance note prepared"}</strong><small>{proposal ? "Check the extracted text, then choose Convert to note. Your original is preserved." : `${state.generation?.engine === "ai" ? "AI drafting" : "Local drafting"} · Based on your note examples · ${state.appliedRuleIds?.length ?? 0} supplied rules matched.`}</small></span><button className="pg-text-button" onClick={() => void copyText()}><Copy size={13} />{proposal ? "Copy text" : "Copy note"}</button></div>
+        {preparingNote && <div className="pg-note-progress" role="status"><LoaderCircle size={17} className="pg-spinner" /><span>Preparing a note from your proposal and note examples…</span><button className="pg-text-button" onClick={() => noteRequests.current.get(selected)?.abort()}>Cancel note creation</button></div>}
         {noteError && <div className="pg-note-error" role="alert">{noteError}</div>}
         <Studio key={`${item.id}-${state.draftKind}`} item={item} state={state} cases={cases} states={states} documents={documents} editable={editable} onChange={changeNote} onInsert={insertDraft} onPreview={setPreview} onOpen={openCase} onUpload={() => setUploading(true)} />
-        <FinanceActions key={`${item.id}-${state.draftKind}-${state.movements.length}-${role}`} item={item} state={state} role={role} editable={editable} exporting={exporting} onSave={saveDraft} onHistory={() => setHistory(true)} onExport={(format) => void download(format)} onTextDownload={item.imported ? downloadText : undefined} onConvertToNote={proposal ? convertToNote : undefined} onAction={action} />
+        <FinanceActions key={`${item.id}-${state.draftKind}-${state.movements.length}-${role}`} item={item} state={state} role={role} editable={editable} exporting={exporting} preparingNote={preparingNote} onSave={saveDraft} onHistory={() => setHistory(true)} onExport={(format) => void download(format)} onTextDownload={item.imported ? downloadText : undefined} onConvertToNote={proposal ? () => void convertToNote() : undefined} onAction={action} />
       </>}
     </>}
     <footer className="pg-app-footer"><span>Session workspace</span><span>Files and changes clear on reload</span></footer>

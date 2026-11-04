@@ -284,6 +284,13 @@
 .pg-proposal-stage .pg-assistant { min-height: calc(clamp(400px, 60svh, 640px) + 86px); display: flex; flex-direction: column; }
 .pg-proposal-stage .pg-chat-history { max-height: 350px; }
 .pg-note-error { margin: 0 24px 16px; padding: 14px 16px; border: 1px solid var(--line); border-left: 3px solid var(--brand-navy); border-radius: 6px; background: #fff; line-height: 1.8; }
+.pg-note-progress { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 24px 16px; padding: 12px 14px; background: var(--surface-blue); border-radius: 6px; }
+.pg-note-progress > span { flex: 1; }
+.pg-draft-basis { margin: 14px; border-top: 1px solid var(--line); padding-top: 12px; color: var(--muted); line-height: 1.75; overflow-wrap: anywhere; }
+.pg-draft-basis summary { cursor: pointer; }
+.pg-draft-basis ul { padding-left: 18px; }
+.pg-draft-basis li + li { margin-top: 7px; }
+#workspace .pg-draft-basis { font-size: 12px; }
 .pg-applied-rules-caption { margin: 12px 14px 4px; color: var(--subtle); }
 #workspace .pg-applied-rules-caption { font-size: 11px; }
 .pg-note-stage .pg-reference-list { max-height: 350px; }
@@ -314,7 +321,7 @@
 @media (max-width: 760px) {
   .pg-finance .pg-finance-grid.pg-proposal-stage, .pg-finance.pg-expanded .pg-finance-grid.pg-proposal-stage { grid-template-columns: minmax(0, 1fr); }
   .pg-proposal-stage .pg-assistant, .pg-intake-assistant > .pg-assistant { min-height: 380px; }
-  .pg-note-error { margin-inline: 16px; }
+  .pg-note-error, .pg-note-progress { margin-inline: 16px; }
   .pg-finance { border-radius: 10px; }
   .pg-finance .pg-window-bar { padding: 11px 16px; min-height: 62px; }
   .pg-finance .pg-window-bar > div { gap: 6px; }

@@ -1,6 +1,7 @@
 import type { AIAdapter, AssistantResponse, CaseDefinition, CaseState, ReferenceDocument } from "./types";
 import { isRuleDocument } from "./rule-matches";
-import { GPF_CASE_ID, parseGpfProposal } from "./gpf-case";
+import { GPF_CASE_ID } from "./gpf-case";
+import { buildLocalNote, factLabels, NOTE_TEMPLATE_ID, noteInput } from "./note-draft";
 
 export interface CaseFilters { query: string; category: string; branch: string; section: string; session: string; status: string; authority: string; assistant: string; officer: string; policy: string; from: string; to: string }
 export const emptyFilters: CaseFilters = { query: "", category: "", branch: "", section: "", session: "", status: "", authority: "", assistant: "", officer: "", policy: "", from: "", to: "" };
@@ -26,7 +27,7 @@ export function respondToRules(question: string, references: ReferenceDocument[]
 }
 
 export function respondToIntake(question: string): AssistantResponse {
-  if (/case|sample|topic|gpf/i.test(question)) return { text: "The first case is a refundable GPF advance for a dependent child's higher education. Use the sample proposal or download its PDF and upload it yourself. The note uses your supplied GPF Rules, 2013 and the format of your supplied note sample.", citations: [] };
+  if (/case|sample|topic|gpf/i.test(question)) return { text: "You can upload your own proposal. Its note will follow the structure of the supplied noting examples and use relevant supplied rules. The sample button provides a GPF application to try the same workflow.", citations: [] };
   if (/file|format|pdf|scan/i.test(question)) return { text: "Upload PDF, DOCX, TXT/MD, PNG or JPEG (up to 20 MB). Convert to text first. Scans use English OCR, so review the extracted text before preparing the note.", citations: [] };
   return { text: "1. Upload a proposal or choose Use sample.\n2. Click Convert to text and review the extracted proposal.\n3. Click Convert to note. The prepared note and its applied rules will then appear together.\n\nThe original proposal and reviewed text remain available separately.", citations: [] };
 }
@@ -41,11 +42,21 @@ export const demoAI: AIAdapter = {
     if (state.draftKind === "proposal") {
       if (/rule|clause|polic/.test(q)) return { text: "Review the proposal text, then click Convert to note. The applicable rules will appear beside the generated note at that stage.", citations: [] };
       if (/missing|check|required|details/.test(q)) {
-        try { const facts = parseGpfProposal(state.text); return { text: `The configured GPF proposal fields are present.\nApplicant: ${facts.applicant}\nAdvance requested: INR ${facts.amount.toLocaleString("en-IN")}\nDeclared GPF balance: INR ${facts.balance.toLocaleString("en-IN")}\nPrincipal recovery: ${facts.instalments} instalments of INR ${facts.monthly.toLocaleString("en-IN")}.\n\nReview these applicant-supplied particulars, then choose Convert to note.`, citations: [current.documents[0].id] }; }
-        catch (error) { return { text: error instanceof Error ? error.message : "Check the proposal fields before converting to a note.", citations: [] }; }
+        try { const draft = buildLocalNote(noteInput(current, state)); return { text: `${draft.facts.map((fact) => `${factLabels[fact.key]}: ${fact.value}`).join("\n") || "No labelled particulars were found; the proposal can still be drafted for examination."}\n\n${draft.missing_information.length ? `To confirm:\n${draft.missing_information.join("\n")}` : "Review the stated particulars, then choose Convert to note."}`, citations: [current.documents[0].id] }; }
+        catch (error) { return { text: error instanceof Error ? error.message : "Review the proposal text before drafting.", citations: [] }; }
       }
-      if (/convert|next|note/.test(q) || mode === "draft") return { text: "Use the Convert to note button below the editor. It prepares the first-case GPF note from the reviewed proposal text and keeps that text as a separate saved version.", citations: [] };
+      if (/convert|next|note/.test(q) || mode === "draft") return { text: "Use the Convert to note button below the editor. It prepares a note from your reviewed proposal using the supplied noting examples, while preserving the proposal text separately.", citations: [] };
       return { text: `Current proposal text (excerpt):\n\n${state.text.slice(0, 1800)}`, citations: [current.documents[0].id] };
+    }
+    if (current.caseTemplateId === NOTE_TEMPLATE_ID) {
+      if (/rule|clause|polic/.test(q)) {
+        const rules = references.filter((doc) => state.appliedRuleIds?.includes(doc.id));
+        if (!rules.length) return { text: "No relevant provision was identified in the supplied rule library for this proposal. The note lists the policy or clarification needed before a final decision.", citations: [] };
+        if (/which|applied|relevant/.test(q)) return { text: rules.map((doc) => `${doc.title}: ${doc.application}`).join("\n\n"), citations: rules.map((doc) => doc.id) };
+        return respondToRules(question, rules, contextId ?? "");
+      }
+      if (mode === "draft") return { text: "Suggested next action for this proposal", draft: current.recommendation, citations: state.appliedRuleIds ?? [] };
+      return { text: `${current.facts.map((fact) => `${fact.label}: ${fact.value}`).join("\n")}\n\n${current.recommendation}${state.generation?.missingInformation.length ? `\n\nTo confirm:\n${state.generation.missingInformation.join("\n")}` : ""}`, citations: [current.documents[0].id, ...(state.appliedRuleIds ?? [])] };
     }
     if (current.caseTemplateId === GPF_CASE_ID) {
       if (/rule|clause|polic/.test(q)) return respondToRules(question, references.filter((doc) => state.appliedRuleIds?.includes(doc.id)), contextId ?? "");

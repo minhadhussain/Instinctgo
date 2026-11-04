@@ -11,6 +11,8 @@ import { findRuleMatches, rulePhrases } from "../src/lib/playground/rule-matches
 import { canApproveNote, performFinanceAction } from "../src/lib/playground/finance-actions";
 import { applyExtractedText, finishExtraction, MAX_TEXT_CHARACTERS, pdfTextLines } from "../src/lib/playground/document-text";
 import { convertGpfProposal, gpfProposalText, gpfRules, parseGpfProposal, renderGpfNote } from "../src/lib/playground/gpf-case";
+import { applyDraftNote, buildLocalNote, classifyProposal, factIsGrounded, moneyValue, noteInput, type NoteInput } from "../src/lib/playground/note-draft";
+import { requestNoteDraft } from "../src/lib/playground/note-service";
 
 const procurement = sampleCases[0];
 const now = "2026-11-02T12:00:00.000Z";
@@ -295,4 +297,194 @@ test("GPF rules are tied to the supplied PDF and the assistant respects the prop
   assert.equal(answer.draft, undefined);
   assert.match(answer.text, /Convert to note/);
   assert.equal(canApproveNote(proposal.item, { ...proposal.state, level: 4, status: "In review" }, "Registrar"), false);
+});
+
+const newRefund = `To the Registrar
+Dibrugarh University
+Subject: Request for refund of duplicate examination fee
+
+I, Riya Nath, a student in the Department of Physics, accidentally paid INR 3200 twice for the examination. I request a refund of INR 3200. Please check the two payment receipts.
+
+Yours faithfully,
+Riya Nath`;
+function draftInput(text: string, title = "new-upload") : NoteInput {
+  return { title, proposal_text: text, proposal_id: "new-proposal", supporting_documents: [] };
+}
+
+test("new free-form refund proposals produce their own notes without sample identifiers", () => {
+  const input = draftInput(newRefund);
+  const draft = buildLocalNote(input);
+  assert.equal(draft.category, "fee-refund");
+  assert.equal(draft.facts.find((fact) => fact.key === "applicant")?.value, "Riya Nath");
+  assert.equal(draft.facts.find((fact) => fact.key === "amount_requested")?.value, "INR 3200");
+  assert.ok(draft.facts.every((fact) => factIsGrounded(fact, input)));
+  assert.deepEqual(draft.applied_rules, []);
+  assert.ok(draft.missing_information.some((value) => value.includes("policy")));
+  assert.ok(draft.style_sources[0].path.endsWith("Untitled design (5).pdf"));
+  assert.ok(draft.paragraphs.some((value) => value.includes("ledger")));
+  assert.equal(JSON.stringify(draft).includes("Aditi Bora"), false);
+  assert.equal(JSON.stringify(draft).includes("DEMO-GPF-001"), false);
+  assert.equal(draft.engine, "local");
+});
+
+test("note formation preserves originals, uses edited text and is independent of the filename", () => {
+  const bytes = new TextEncoder().encode(newRefund);
+  const item = createImportedCase({ name: "scan-128.txt", type: "text/plain", size: bytes.length }, bytes.buffer, "blob:refund", "FIN-NEW", now);
+  const extracted = applyExtractedText(item, initialCaseState(item), finishExtraction([{ page: 1, text: newRefund, ocr: false }], "Text"), now);
+  const edited = { ...extracted.state, text: newRefund.replaceAll("Riya Nath", "Anu Bora") };
+  const input = noteInput(extracted.item, edited);
+  const draft = buildLocalNote(input);
+  assert.equal(buildLocalNote({ ...input, title: "some-other-filename" }).subject, draft.subject);
+  draft.paragraphs = draft.paragraphs.filter((paragraph) => paragraph !== draft.recommendation);
+  const result = applyDraftNote(extracted.item, edited, draft, now);
+  assert.equal(result.state.draftKind, "note");
+  assert.match(result.state.text, /Anu Bora/);
+  assert.equal(result.state.text.includes("Riya Nath"), false);
+  assert.match(result.state.html, /<table>/);
+  assert.match(result.state.text, /Put up for your kind perusal/);
+  assert.equal(result.state.proposalDraft?.text, edited.text);
+  assert.equal(result.item.documents[0].original, extracted.item.documents[0].original);
+  assert.equal(extracted.state.draftKind, "proposal");
+  assert.equal(result.state.generation?.engine, "local");
+  assert.ok(result.state.text.includes(draft.recommendation));
+});
+
+test("incomplete and unfamiliar applications still produce a clarification note", () => {
+  const draft = buildLocalNote(draftInput("Please permit me to submit my dissertation after the deadline because my project work was delayed."));
+  assert.equal(draft.category, "general");
+  assert.ok(draft.paragraphs.length >= 3);
+  assert.ok(draft.missing_information.some((value) => value.includes("Applicant")));
+  assert.equal(draft.facts.some((fact) => fact.key === "application_date"), false);
+  assert.deepEqual(draft.applied_rules, []);
+});
+
+test("new GPF medical applications use advance rules without education-only sample facts", () => {
+  const input = draftInput(`Subject: Request for GPF advance for medical expenses
+I, Arup Das, request an advance of INR 90000 from my GPF for my dependent father's surgery. My GPF account has a balance of INR 300000. I propose 30 equal monthly instalments.
+Yours faithfully,
+Arup Das`);
+  const draft = buildLocalNote(input);
+  assert.equal(draft.category, "gpf-advance");
+  assert.equal(draft.facts.find((fact) => fact.key === "fund_balance")?.value, "INR 300000");
+  assert.ok(draft.applied_rules.some((rule) => rule.id === "du-gpf-12-1-1"));
+  assert.ok(draft.paragraphs.some((paragraph) => paragraph.includes("1,50,000")));
+  assert.equal(JSON.stringify(draft).includes("Anika Bora"), false);
+  assert.equal(JSON.stringify(draft).includes("dependent daughter"), false);
+  assert.ok(draft.facts.every((fact) => factIsGrounded(fact, input)));
+});
+
+test("GPF withdrawals and final payments are not drafted as recoverable advances", () => {
+  const withdrawal = buildLocalNote(draftInput(`Subject: GPF withdrawal for house construction
+Applicant: Arup Das
+Amount requested: INR 250000
+GPF balance: INR 800000
+Monthly pay: INR 40000
+I request a non-refundable withdrawal to construct a house.`));
+  assert.equal(withdrawal.category, "gpf-withdrawal");
+  assert.ok(withdrawal.applied_rules.some((rule) => rule.id === "du-gpf-13-2"));
+  assert.equal(withdrawal.applied_rules.some((rule) => rule.id.startsWith("du-gpf-12")), false);
+  assert.match(withdrawal.paragraphs.join(" "), /6,00,000/);
+  const final = buildLocalNote(draftInput("Subject: Final settlement of GPF after retirement\nI have retired and request final payment of my GPF accumulation."));
+  assert.equal(final.category, "gpf-final");
+  assert.ok(final.applied_rules.some((rule) => rule.id === "du-gpf-14-1"));
+  assert.equal(final.applied_rules.some((rule) => rule.id.startsWith("du-gpf-12")), false);
+});
+
+test("the sample remains supported but its explicit advance is not mistaken for a withdrawal", () => {
+  assert.equal(classifyProposal(gpfProposalText), "gpf-advance");
+  const draft = buildLocalNote(draftInput(gpfProposalText));
+  assert.ok(draft.paragraphs.some((paragraph) => paragraph.includes("3,00,000")));
+  assert.ok(draft.paragraphs.some((paragraph) => paragraph.includes("5,000")));
+});
+
+test("new drafts report GPF limits and handle Indian amount units", () => {
+  assert.equal(moneyValue("Rs. 1.5 lakh"), 150000);
+  assert.equal(moneyValue("INR 2 crore"), 20000000);
+  assert.equal(moneyValue("INR 180OO0"), undefined);
+  const draft = buildLocalNote(draftInput("Subject: GPF advance\nGPF balance: INR 300000\nAdvance requested: INR 200000\nRepayment instalments: 40\nI request this advance for higher education."));
+  assert.ok(draft.findings.some((finding) => finding.kind === "error" && finding.title.includes("limit")));
+  assert.ok(draft.findings.some((finding) => finding.title.includes("repayment") || finding.title.includes("Repayment")));
+});
+
+test("a different named university does not inherit the Dibrugarh GPF policy", () => {
+  const draft = buildLocalNote(draftInput("To the Registrar\nDelhi University\nSubject: GPF advance\nI request an advance of INR 50000 from my GPF account for medical treatment."));
+  assert.equal(draft.institution, "Delhi University");
+  assert.deepEqual(draft.applied_rules, []);
+  assert.equal(draft.paragraphs.some((paragraph) => paragraph.includes("Rule 12")), false);
+});
+
+const consultancyProposal = `Dibrugarh University
+Subject: Distribution of institutional consultancy earnings
+Applicant: Dr. Nandita Roy
+Department: Applied Geology
+Distributable consultancy earnings: INR 100000
+We request distribution of earnings from materials testing for an external client using University laboratory facilities. Laboratory staff participated in the assignment. Please verify the client report and DUCF deposit before release.`;
+
+test("new consultancy proposals use the added PDF and its nested earnings split", () => {
+  const draft = buildLocalNote(draftInput(consultancyProposal));
+  assert.equal(draft.category, "consultancy");
+  assert.ok(draft.applied_rules.some((rule) => rule.id === "du-consultancy-2-1-2"));
+  assert.ok(draft.applied_rules.some((rule) => rule.id === "du-consultancy-3-ii"));
+  assert.equal(draft.applied_rules.some((rule) => rule.id.startsWith("du-gpf")), false);
+  assert.match(draft.paragraphs.join(" "), /60,000.*40,000.*36,000.*24,000/);
+  assert.match(draft.recommendation, /Advisory Committee/);
+  assert.doesNotMatch(draft.recommendation, /Vice-Chancellor/);
+  assert.match(draft.missing_information.join(" "), /transaction-date tax/);
+  const bytes = new TextEncoder().encode(consultancyProposal);
+  const item = createImportedCase({ name: "consultancy.txt", type: "text/plain", size: bytes.length }, bytes.buffer, "blob:consultancy", "FIN-CONSULT", now);
+  const extracted = applyExtractedText(item, initialCaseState(item), finishExtraction([{ page: 1, text: consultancyProposal, ocr: false }], "Text"), now);
+  const result = applyDraftNote(extracted.item, extracted.state, draft, now);
+  const rule = result.item.documents.find((doc) => doc.id === "du-consultancy-2-1-2");
+  assert.equal(rule?.file?.url, "/samples/case-01/consultancy-service-rules.pdf");
+  assert.equal(rule?.file?.page, 3);
+  assert.equal(rule?.highlight, -1);
+});
+
+test("consultancy leave applies both limits while ordinary leave and refunds keep their own rules", () => {
+  const draft = buildLocalNote(draftInput(`Dibrugarh University
+Subject: Special consultancy leave for an off-campus visit
+Consultancy leave days requested: 6
+Consultancy leave already taken this calendar year: 16
+I request permission for the consultancy visit to the client.`));
+  assert.ok(draft.findings.some((finding) => finding.title.includes("single-spell")));
+  assert.ok(draft.findings.some((finding) => finding.title.includes("annual limit")));
+  assert.match(draft.paragraphs.join(" "), /Points requiring resolution/);
+  for (const text of [newRefund, "Subject: Casual leave\nI request five days of casual leave for personal reasons.", "Subject: Hiring an external consultant\nPlease approve procurement of consultancy services for the office."]) {
+    assert.deepEqual(buildLocalNote(draftInput(text)).applied_rules, []);
+  }
+  const refund = buildLocalNote(draftInput("Dibrugarh University\nSubject: Refund of consultancy analysis fee\nOur external client requests refund of INR 6000 as the testing service could not be provided."));
+  assert.equal(refund.category, "service-refund");
+  assert.ok(refund.applied_rules.some((rule) => rule.id === "du-consultancy-2-1-1"));
+  assert.ok(refund.missing_information.some((value) => value.includes("refund entitlement")));
+  assert.equal(refund.applied_rules.some((rule) => rule.id === "du-consultancy-2-1-2"), false);
+  assert.deepEqual(buildLocalNote(draftInput(consultancyProposal.replace("Dibrugarh University", "Delhi University"))).applied_rules, []);
+});
+
+test("soft PDF line breaks do not drop parts of the applicant's request", () => {
+  const input = draftInput(`Subject: GPF advance for medical treatment
+I, Arup Das, request an advance of INR 90000 for my
+dependent father's surgery. My GPF account has a
+balance of INR 300000. My registration number is EMP-059.
+I propose 30 equal monthly instalments.`);
+  const draft = buildLocalNote(input);
+  assert.match(draft.paragraphs.join(" "), /my dependent father's surgery\./);
+  assert.equal(draft.facts.find((fact) => fact.key === "fund_balance")?.value, "INR 300000");
+  assert.equal(draft.facts.find((fact) => fact.key === "reference")?.value, "EMP-059");
+  assert.ok(draft.facts.every((fact) => factIsGrounded(fact, input)));
+});
+
+test("the drafting service falls back locally without a configured model and honours cancellation", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => Response.json({ ai_available: false });
+    const draft = await requestNoteDraft(draftInput(newRefund), new AbortController().signal);
+    assert.equal(draft.engine, "local");
+    const controller = new AbortController();
+    globalThis.fetch = async (_url, init) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(new DOMException("Cancelled", "AbortError")), { once: true });
+    });
+    const pending = requestNoteDraft(draftInput(newRefund), controller.signal);
+    controller.abort();
+    await assert.rejects(pending, { name: "AbortError" });
+  } finally { globalThis.fetch = originalFetch; }
 });
