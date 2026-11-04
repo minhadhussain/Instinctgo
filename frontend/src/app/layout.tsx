@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
-import { Barlow_Condensed, Playfair_Display, Poppins } from "next/font/google";
+import { Playfair_Display, Poppins } from "next/font/google";
+import localFont from "next/font/local";
+import { SmoothScroll } from "@/components/smooth-scroll";
+import "lenis/dist/lenis.css";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -16,9 +19,10 @@ const playfairDisplay = Playfair_Display({
   variable: "--font-playfair",
 });
 
-const barlowCondensed = Barlow_Condensed({
-  subsets: ["latin"],
+const barlowCondensed = localFont({
+  src: "./fonts/BarlowCondensed-SemiBold.ttf",
   weight: "600",
+  style: "normal",
   display: "swap",
   variable: "--font-display",
 });
@@ -32,7 +36,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${poppins.variable} ${playfairDisplay.variable} ${barlowCondensed.variable}`}>
-      <body>{children}</body>
+      <body><SmoothScroll>{children}</SmoothScroll></body>
     </html>
   );
 }

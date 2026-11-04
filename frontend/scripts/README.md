@@ -3,7 +3,23 @@
 The website serves prebuilt WebP images. These scripts are offline preparation tools;
 the development server does not run an upscaling model.
 
-## Clean the foreground screenshot
+## Current foreground: the supplied silhouette JPEG
+
+```powershell
+python frontend/scripts/prepare_new_foreground.py
+```
+
+Requires Pillow, NumPy, and OpenCV. The script turns `newforeground.jpeg`
+(1024 × 410) into `newforeground-4x.webp` (**4096 × 1640**), which the hero serves.
+It removes the Gemini mark from the solid ground, extracts the white background,
+cleans JPEG speckles, and supersamples the antialiased silhouette edges. Black RGB
+under transparent pixels prevents white halos. The output is lossless WebP with
+transparency; 4x refers to output sampling, not newly reconstructed photographic detail.
+
+The original JPEG is retained as the reproducible input. The following workflows
+describe the earlier photographic foreground and the current campus background.
+
+## Earlier foreground screenshot
 
 ```powershell
 python frontend/scripts/prepare_hero_assets.py
@@ -37,9 +53,9 @@ background uses high-quality WebP; the foreground uses lossless WebP with transp
 The hero serves these prepared files directly to avoid a second resizing/compression
 pass. Source filenames and high-resolution output filenames are separate.
 
-## Refined full-size foreground
+## Earlier refined full-size foreground
 
-The current foreground uses a separate, higher-detail restoration:
+The earlier photographic foreground used a separate, higher-detail restoration:
 
 ```powershell
 python frontend/scripts/refine_foreground.py --model "path/to/RealESRGAN_x4plus.pth"

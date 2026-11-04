@@ -12,7 +12,7 @@ export function initialCaseState(item: CaseDefinition, ready = false): CaseState
     stage: generated ? 6 : 0, status: item.historical?.status ?? (generated ? "AI-generated draft" : "Received"), level: 0, ...note,
     versions: generated ? [{ id: 1, label: item.historical ? "Archived sample note" : "AI-generated draft", ...note, date: `${item.date}T10:00:00`, author: "Simulated AI" }] : [],
     movements: item.historical ? [{ id: 1, officer: item.historical.status === "Returned" ? "Section Officer" : item.terminal, date: `${item.date}T15:30:00`, action: "Archived disposition", remarks: item.historical.disposition, previous: "In review", next: item.historical.status, from: item.historical.status === "Returned" ? "Section Officer" : item.terminal, to: "Dealing Assistant", version: 1 }] : [],
-    comments: [], checks: [], extraDocuments: [], correction: "", disposition: item.historical?.disposition ?? "", terminal: item.terminal, savedAt: "",
+    comments: [], checks: [], extraDocuments: [], correction: "", disposition: item.historical?.disposition ?? "", terminal: item.terminal, savedAt: "", draftKind: item.imported ? "proposal" : "note",
   };
 }
 
@@ -20,15 +20,16 @@ export function validateNote(item: CaseDefinition, state: CaseState): Finding[] 
   const resolved = state.extraDocuments.some((doc) => doc.id === `${item.id}-clarification`);
   const findings: Finding[] = item.findings.map((finding) => resolved && finding.kind !== "pass" ? { ...finding, kind: "pass", title: `${finding.title} · clarified`, detail: "Supporting clarification attached." } : finding);
   const sources = [...item.documents, ...state.extraDocuments];
-  const links = Array.from(state.html.matchAll(/href="#ref-([^"]+)"/g), (match) => match[1]);
+  const links = [...new Set([...Array.from(state.html.matchAll(/href="#ref-([^"]+)"/g), (match) => match[1]), ...(state.appliedRuleIds ?? [])])];
   if (!item.historical && state.html && !links.length) findings.push({ kind: "error", title: "No linked evidence", detail: "Insert current sample references before recording a final decision on this note." });
   const invalid = links.filter((id) => !sources.some((doc) => doc.id === id && (doc.status === "Current" || (resolved && doc.id === "exam-attendance" && doc.status === "Under review"))));
   if (invalid.length && !item.historical) findings.push({ kind: "error", title: "Citation requires verification", detail: "At least one linked source is missing, under review, historical or not current. Verify the evidence before a final decision." });
   else findings.push({ kind: "pass", title: "Source links checked", detail: `${links.length} references linked.` });
   if (item.calculation) findings.push({ kind: item.calculation.amount === item.calculation.expected ? "pass" : "error", title: "Deterministic calculation", detail: item.calculation.expression });
   if (!item.historical) {
-    const supportedAmounts = new Set(item.note.flatMap((section) => section.text.match(/₹[\d,]+(?:\.\d+)?/g) ?? []));
-    const unsupported = (state.text.match(/₹[\d,]+(?:\.\d+)?/g) ?? []).filter((amount) => !supportedAmounts.has(amount));
+    const amounts = (text: string) => [...text.matchAll(/(?:₹\s*|INR\s+|Rs\.?\s+)([\d,]+(?:\.\d+)?)/gi)].map((match) => ({ text: match[0], value: Number(match[1].replace(/,/g, "")) }));
+    const supportedAmounts = new Set(item.note.flatMap((section) => amounts(section.text).map((amount) => amount.value)));
+    const unsupported = amounts(state.text).filter((amount) => !supportedAmounts.has(amount.value)).map((amount) => amount.text);
     if (unsupported.length) findings.push({ kind: "error", title: "Unsupported amount in edited note", detail: `${[...new Set(unsupported)].join(", ")} is not supported by this case's sample calculation or supplied note facts. Reconcile the edit before approval.` });
   }
   if (state.status === "Human-edited draft" || state.correction) findings.push({ kind: "warning", title: "Edited note pending verification", detail: "Revised paragraphs require source verification." });
@@ -37,6 +38,7 @@ export function validateNote(item: CaseDefinition, state: CaseState): Finding[] 
 
 export function advanceWorkflow(item: CaseDefinition, state: CaseState, role: Role, action: WorkflowAction, remarks: string, now: string): { state?: CaseState; error?: string } {
   if (item.historical) return { error: "Archived sample records are read-only." };
+  if (state.draftKind === "proposal") return { error: "Convert the proposal text into a note before submitting it for review." };
   const path = getPath(item.branch, state.terminal);
   if (!path.length) return { error: "Configure a valid institutional route first." };
   if (state.status === "Closed") return { error: "This file is already closed." };
@@ -58,7 +60,7 @@ export function advanceWorkflow(item: CaseDefinition, state: CaseState, role: Ro
     level -= 1;
     status = "Returned";
   } else if (action === "submit") {
-    if (level !== 0 || !["AI-generated draft", "Human-edited draft", "Returned"].includes(state.status)) return { error: "Only a prepared draft at the dealing level can be submitted." };
+    if (level !== 0 || !["AI-generated draft", "Generated note", "Human-edited draft", "Returned"].includes(state.status)) return { error: "Only a prepared draft at the dealing level can be submitted." };
     const lastReturn = state.movements.findLast((movement) => movement.action === "return");
     const returnedVersion = state.versions.find((version) => version.id === lastReturn?.version);
     if (lastReturn && !state.versions.some((version) => version.id > lastReturn.version && version.author === "Dealing Assistant" && (version.html !== returnedVersion?.html || version.text !== returnedVersion?.text))) return { error: "Record a correction and save a new version before resubmitting." };

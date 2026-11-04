@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { ArrowDown, ArrowUpRight } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { useLenis } from "lenis/react";
 
 // Source-image coordinates, matching building-mask.svg.
 const roofline = [
@@ -17,6 +18,7 @@ function clamp(value: number) {
 }
 
 export function ParallaxHero() {
+  const lenis = useLenis();
   const sectionRef = useRef<HTMLElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const backgroundRef = useRef<HTMLDivElement>(null);
@@ -53,6 +55,11 @@ export function ParallaxHero() {
       if (!frame) frame = window.requestAnimationFrame(update);
     }
 
+    function updateFromLenis() {
+      window.cancelAnimationFrame(frame);
+      update();
+    }
+
     function measure() {
       if (!section || !stage || !background || !wordmark) return;
       sectionTop = section.getBoundingClientRect().top + window.scrollY;
@@ -72,6 +79,13 @@ export function ParallaxHero() {
       const inkTop = metrics
         ? lettering.offsetTop + (lettering.offsetHeight - metrics.fontBoundingBoxAscent - metrics.fontBoundingBoxDescent) / 2 + metrics.fontBoundingBoxAscent - metrics.actualBoundingBoxAscent
         : (wordmark.offsetHeight - letterHeight) / 2;
+      const firstLine = wordmark.querySelector<HTMLElement>(".wordmark-instinct");
+      let firstInkTop = inkTop;
+      if (firstLine && textMeasure) {
+        textMeasure.font = getComputedStyle(firstLine).font;
+        const firstMetrics = textMeasure.measureText("INSTINCT");
+        firstInkTop = Math.min(inkTop, firstLine.offsetTop + (firstLine.offsetHeight - firstMetrics.fontBoundingBoxAscent - firstMetrics.fontBoundingBoxDescent) / 2 + firstMetrics.fontBoundingBoxAscent - firstMetrics.actualBoundingBoxAscent);
+      }
       const imageScale = Math.max(background.clientWidth / 967, background.clientHeight / 533);
       const imageLeft = background.offsetLeft + (background.clientWidth - 967 * imageScale) / 2;
       const imagePosition = parseFloat(getComputedStyle(stage).getPropertyValue("--background-position")) / 100;
@@ -99,8 +113,10 @@ export function ParallaxHero() {
       // Limit occlusion at the roof peaks so the Go remains recognizable.
       const center = Math.min((upper + lower) / 2, Math.min(...roofHeights) - letterHeight * 0.18);
       const masthead = stage.querySelector<HTMLElement>(".scene-masthead");
-      const safeCenter = (masthead?.offsetHeight ?? 84) + 24 + letterHeight / 2;
-      stage.style.setProperty("--wordmark-top", `${Math.max(safeCenter, center) - inkTop - letterHeight / 2 + wordmark.offsetHeight / 2}px`);
+      const safeCenter = (masthead?.offsetHeight ?? 84) + 24 + (inkTop - firstInkTop) + letterHeight / 2;
+      // Roughly 2 cm of extra clearance above the figures, capped by the masthead.
+      const liftedCenter = Math.max(safeCenter, center - 76);
+      stage.style.setProperty("--wordmark-top", `${liftedCenter - inkTop - letterHeight / 2 + wordmark.offsetHeight / 2}px`);
       lastProgress = -1;
       schedule();
     }
@@ -110,6 +126,7 @@ export function ParallaxHero() {
     observer.observe(stage);
     observer.observe(wordmark);
     window.addEventListener("scroll", schedule, { passive: true });
+    lenis?.on("scroll", updateFromLenis);
     window.addEventListener("resize", measure);
     reducedMotion.addEventListener("change", measure);
     document.fonts.addEventListener("loadingdone", measure);
@@ -119,11 +136,12 @@ export function ParallaxHero() {
       window.cancelAnimationFrame(frame);
       observer.disconnect();
       window.removeEventListener("scroll", schedule);
+      lenis?.off("scroll", updateFromLenis);
       window.removeEventListener("resize", measure);
       reducedMotion.removeEventListener("change", measure);
       document.fonts.removeEventListener("loadingdone", measure);
     };
-  }, []);
+  }, [lenis]);
 
   return (
     <section className="parallax-hero" id="hero-scene" aria-label="InstinctGo — from physical files to verified action" ref={sectionRef}>
@@ -166,10 +184,10 @@ export function ParallaxHero() {
 
         <div className="parallax-foreground" aria-hidden="true">
           <Image
-            src="/images/hero/foreground-refined-8x.webp"
+            src="/images/hero/newforeground-4x.webp"
             alt=""
-            width={6344}
-            height={2856}
+            width={4096}
+            height={1640}
             sizes="(max-width: 680px) 150vw, 108vw"
             loading="eager"
             unoptimized

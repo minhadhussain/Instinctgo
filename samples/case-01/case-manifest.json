@@ -1,0 +1,28 @@
+{
+  "topic": "Refundable GPF advance for a dependent child's higher education",
+  "rules": "rules/GPF-RULE-FINAL.pdf",
+  "ruleSha256": "500180587d751088ebeffb360506ea06ce60a684b3dfa3952d433f0431ca7222",
+  "rulePages": [
+    4,
+    7,
+    8
+  ],
+  "appliedRules": [
+    "5",
+    "12.1",
+    "12.1.1(iii)",
+    "12.1.2",
+    "12.1.3",
+    "12.1.4",
+    "12.1.5",
+    "12.1.6"
+  ],
+  "formatReference": "notes/Untitled design (5).pdf",
+  "formatReferencePages": [
+    6,
+    7
+  ],
+  "proposal": "proposals/gpf-advance-proposal.pdf",
+  "expectedNote": "notes/gpf-advance-note.pdf",
+  "scope": "Fictional GPF applicant. The supplied refund-note PDF informs formatting only. Rule 13 withdrawal conditions are not applied to this Rule 12 advance. No interest rate or ledger code is invented."
+}

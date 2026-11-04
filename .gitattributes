@@ -1,0 +1,2 @@
+# Preserve PDF byte offsets and keep document changes out of text diffs.
+*.[pP][dD][fF] binary

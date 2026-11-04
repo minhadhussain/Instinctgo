@@ -1,7 +1,7 @@
 export type Role = "Dealing Assistant" | "Section Officer" | "Assistant Registrar" | "Deputy Registrar" | "Registrar" | "Assistant Controller" | "Deputy Controller" | "Controller" | "Vice-Chancellor";
 export type Branch = "Administrative" | "Examination" | "PNC";
 export type SourceStatus = "Current" | "Historical" | "Superseded" | "Under review" | "Unverified";
-export type CaseStatus = "Received" | "AI-generated draft" | "Human-edited draft" | "In review" | "Returned" | "Demo approved" | "Demo rejected" | "Closed";
+export type CaseStatus = "Received" | "AI-generated draft" | "Extracted draft" | "Generated note" | "Human-edited draft" | "In review" | "Returned" | "Demo approved" | "Demo rejected" | "Closed";
 export type View = "Overview" | "Noting Studio" | "AI Assistant" | "Case Explorer" | "Reference Library" | "Workflow" | "Administration";
 
 export interface ReferenceDocument {
@@ -17,6 +17,10 @@ export interface ReferenceDocument {
   locator: string;
   content: string[];
   highlight: number;
+  original?: { name: string; url: string; mime: string; size: number };
+  extraction?: { method: string; pages: number; ocrPages: number };
+  file?: { name: string; url: string; page?: number };
+  application?: string;
 }
 
 export interface NoteSection { heading: string; text: string; referenceIds?: string[] }
@@ -43,9 +47,12 @@ export interface CaseDefinition {
   tools: string[];
   calculation?: { expression: string; amount: number; expected: number };
   historical?: { status: "Closed" | "Demo rejected" | "Returned"; disposition: string };
+  imported?: boolean;
+  institution?: string;
+  caseTemplateId?: string;
 }
 
-export interface NoteVersion { id: number; label: string; html: string; text: string; date: string; author: Role | "Simulated AI" }
+export interface NoteVersion { id: number; label: string; html: string; text: string; date: string; author: Role | "Simulated AI" | "Browser extraction" | "Case template" }
 export interface Movement { id: number; officer: Role; date: string; action: string; remarks: string; previous: CaseStatus; next: CaseStatus; from: Role; to: Role; version: number }
 export interface CaseComment { id: number; author: Role; date: string; text: string }
 export interface CaseState {
@@ -63,9 +70,13 @@ export interface CaseState {
   disposition: string;
   terminal: Role;
   savedAt: string;
+  signature?: { name: string; role: Role; date: string };
+  draftKind?: "proposal" | "note";
+  proposalDraft?: { html: string; text: string; savedAt: string };
+  appliedRuleIds?: string[];
 }
 
 export type WorkflowAction = "submit" | "forward" | "return" | "approve" | "reject" | "close";
 export interface AssistantResponse { text: string; citations: string[]; caseIds?: string[]; draft?: string }
-export interface AssistantRequest { question: string; mode: "research" | "draft"; current: CaseDefinition; state: CaseState; cases: CaseDefinition[]; states: Record<string, CaseState> }
+export interface AssistantRequest { question: string; mode: "research" | "draft"; current: CaseDefinition; state: CaseState; cases: CaseDefinition[]; states: Record<string, CaseState>; references?: ReferenceDocument[]; contextId?: string }
 export interface AIAdapter { mode: "local-demo"; respond: (request: AssistantRequest) => AssistantResponse }

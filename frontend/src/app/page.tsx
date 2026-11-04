@@ -70,11 +70,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="workspace-section page-width" id="workspace" aria-label="Digital Green Sheet administrative playground">
-          <div className="workspace-caption">
-            <div><span className="caption-line" /> DIGITAL GREEN SHEET</div>
-            <span>Playground</span>
-          </div>
+        <section className="workspace-section page-width" id="workspace" aria-label="Noting workspace">
           <AdministrativePlayground />
         </section>
 

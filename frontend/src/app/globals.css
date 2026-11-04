@@ -36,7 +36,7 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+html { scroll-behavior: auto; scroll-padding-top: 24px; }
 body { margin: 0; }
 a { color: inherit; text-decoration: none; }
 button { font: inherit; cursor: pointer; }
@@ -84,7 +84,7 @@ button:disabled { cursor: default; }
 .scene-scroll { display: flex; align-items: center; gap: 20px; font-size: 8px; font-weight: 500; letter-spacing: 1.8px; line-height: 1.8; }
 .scene-scroll-icon { display: grid; place-items: center; width: 46px; height: 46px; border: 1px solid rgb(245 240 229 / 45%); border-radius: 50%; transition: background 200ms ease, transform 200ms ease; }
 .scene-scroll:hover .scene-scroll-icon { background: rgb(245 240 229 / 12%); transform: translateY(3px); }
-.parallax-foreground { --foreground-ground: #101213; position: absolute; z-index: 4; bottom: -15svh; left: -4%; width: 108%; pointer-events: none; transform: translate3d(0, var(--foreground-shift, 0px), 0); will-change: transform; }
+.parallax-foreground { --foreground-ground: #000; position: absolute; z-index: 4; bottom: -15svh; left: -4%; width: 108%; pointer-events: none; transform: translate3d(0, var(--foreground-shift, 0px), 0); will-change: transform; }
 .parallax-foreground-image { display: block; width: 100%; height: auto; }
 .parallax-foreground::before { content: ""; position: absolute; z-index: 1; bottom: 0; left: 0; width: 100%; height: 12%; background: linear-gradient(to bottom, transparent, var(--foreground-ground)); }
 .parallax-foreground::after { content: ""; position: absolute; z-index: 1; top: calc(100% - 1px); left: 0; width: 100%; height: calc(2px - var(--foreground-shift, 0px)); background: var(--foreground-ground); }

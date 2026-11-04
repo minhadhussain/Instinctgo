@@ -6,7 +6,6 @@ import {
   ArrowRight,
   BookOpen,
   Check,
-  CheckCheck,
   ChevronDown,
   CircleCheck,
   Eye,
@@ -97,7 +96,7 @@ export function WorkspacePreview() {
             <div className="note-submission"><span className="handwritten-line">Submitted for kind approval.</span><span className="note-signature">Section Officer <span>·</span> Administration</span></div>
             <div className="citation-hint"><span className="hint-pulse" /><span>Click a highlighted reference to see its source.</span></div>
           </div>
-          <div className="note-bottom"><span><CheckCheck size={13} aria-hidden="true" /> 3 linked references</span><span>Illustrative note</span></div>
+          <div className="note-bottom"><span>3 linked references</span><span>Illustrative note</span></div>
         </section>
 
         {showPreview && (

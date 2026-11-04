@@ -21,6 +21,7 @@ node_modules/
 out/
 *.tsbuildinfo
 next-env.d.ts
+frontend/public/document-workers/
 
 # Local runtime files
 backend/data/*
