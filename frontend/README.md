@@ -51,11 +51,3 @@ wording is flagged for transaction-date verification. Notes with no matching rul
 the required policy. See `samples/README.md` for source maintenance.
 
 Run the workflow tests with `npm run test:playground --workspace @instinctgo/frontend`.
-
-## Student Welfare procurement
-
-Select **Student Welfare · Procurement** in the workspace's Module selector for four-section,
-word-targeted drafts, automatic note/paragraph numbering, Legal/A3 layout settings and table tools.
-**Print layout** is shared by printing and fixed-layout exports. The separate GFR/University and
-Assam rulebook slots are pending the user's source PDFs. See `../docs/sws-noting.md` for usage,
-print fidelity and the deferred rule-integration reminder.

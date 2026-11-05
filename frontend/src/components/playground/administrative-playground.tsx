@@ -14,25 +14,21 @@ import { createImportedCase, displayStatus, readDocument, validateDocument, type
 import { performFinanceAction } from "@/lib/playground/finance-actions";
 import { applyExtractedText } from "@/lib/playground/document-text";
 import { extractDocumentText } from "@/lib/playground/extract-document";
-import type { CaseDefinition, CaseState, ReferenceDocument, Role, WorkflowAction, WorkspaceKind } from "@/lib/playground/types";
-import { swsSample } from "@/lib/playground/sws-settings";
+import type { CaseDefinition, CaseState, ReferenceDocument, Role, WorkflowAction } from "@/lib/playground/types";
 import { Studio } from "./studio";
 import { DocumentIntake } from "./document-intake";
 import { FinanceActions } from "./finance-actions";
 import { ProposalPreview } from "./proposal-preview";
-import { SwsPrintPreview } from "./sws-print-preview";
 import { UploadDocument } from "./repository";
 import { Badge, DocumentPreview, Modal } from "./ui";
 import "./playground.css";
 import "./finance-playground.css";
-import "./sws-playground.css";
 
 const emptyState = initialCaseState(gpfCase);
 
 export function AdministrativePlayground() {
   const lenis = useLenis();
   const [page, setPage] = useState<"intake" | "editor">("intake");
-  const [workspace, setWorkspace] = useState<WorkspaceKind>("general");
   const [cases, setCases] = useState<CaseDefinition[]>([]);
   const [states, setStates] = useState<Record<string, CaseState>>({});
   const [jobs, setJobs] = useState<Record<string, IntakeJob>>({});
@@ -112,8 +108,6 @@ export function AdministrativePlayground() {
     try { record = createImportedCase(file, bytes, url, id, new Date().toISOString()); }
     catch (cause) { URL.revokeObjectURL(url); throw cause; }
     urls.current.add(url);
-    record.workspace = workspace;
-    if (workspace === "sws-procurement") { record.section = "Student Welfare Section"; record.assistant = "Dealing Assistant"; }
     setCases((previous) => [record, ...previous]);
     setStates((previous) => ({ ...previous, [id]: initialCaseState(record) }));
     setJobs((previous) => ({ ...previous, [id]: { status: "Uploaded" } }));
@@ -203,31 +197,30 @@ export function AdministrativePlayground() {
   async function download(format: "docx" | "pdf") {
     setExporting(true);
     try { await exportNote(format, item, state); setNotice(`${format.toUpperCase()} downloaded.`); }
-    catch (error) { setNotice(error instanceof Error ? error.message : "Export failed. Please try again."); }
+    catch { setNotice("Export failed. Please try again."); }
     finally { setExporting(false); }
   }
   const status = displayStatus(state, job);
 
   return <div ref={app} data-lenis-prevent={expanded || undefined} className={`pg-app pg-finance ${expanded ? "pg-expanded" : ""}`} aria-label="Noting workspace">
     <div className="pg-window-bar"><span className="pg-workspace-name"><span className="pg-workspace-mark"><FileText size={20} /></span><strong>Noting workspace</strong></span><div><span className="pg-session-label">Session only</span><button aria-label={expanded ? "Exit expanded playground" : "Expand playground"} aria-pressed={expanded} title={expanded ? "Exit expanded view" : "Expand workspace"} onClick={() => setExpanded(!expanded)}>{expanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}<span>{expanded ? "Exit full screen" : "Expand"}</span></button></div></div>
-    {page === "intake" ? <div className="pg-workspace-switch"><label>Module<select aria-label="Noting module" value={workspace} onChange={(event) => setWorkspace(event.target.value as WorkspaceKind)}><option value="general">General noting</option><option value="sws-procurement">Student Welfare · Procurement</option></select></label>{workspace === "sws-procurement" && <span>Dealing Assistant · Concise four-section notes · Legal / A3 sheets</span>}</div> : item.workspace === "sws-procurement" && <div className="pg-workspace-switch"><strong>Student Welfare Section · Procurement noting</strong></div>}
     {page === "editor" && <header className="pg-finance-topbar">
       <nav className="pg-finance-breadcrumb" aria-label="Breadcrumb"><button onClick={openIntake}><ArrowLeft size={14} />Documents</button><ChevronRight size={12} /><strong title={item.subject}>{item.subject}</strong></nav>
-      <button className="pg-button" disabled={!!job || !state.html} onClick={() => { if (editable) update({ savedAt: new Date().toISOString() }); setPreviewNote(true); }}><Eye size={16} />{item.workspace === "sws-procurement" ? "Print layout" : proposal ? "Preview text" : "Preview note"}</button>
+      <button className="pg-button" disabled={!!job || !state.html} onClick={() => { if (editable) update({ savedAt: new Date().toISOString() }); setPreviewNote(true); }}><Eye size={16} />{proposal ? "Preview text" : "Preview note"}</button>
     </header>}
-    {page === "intake" ? <DocumentIntake key={workspace} workspace={workspace} cases={cases} states={states} jobs={jobs} sample={workspace === "sws-procurement" ? swsSample : gpfSample} onPreview={setPreview} onUpload={upload} onProcess={(id) => void processDocument(id)} onOpen={openCase} /> : <>
+    {page === "intake" ? <DocumentIntake cases={cases} states={states} jobs={jobs} sample={gpfSample} onPreview={setPreview} onUpload={upload} onProcess={(id) => void processDocument(id)} onOpen={openCase} /> : <>
       <div className="pg-finance-heading"><div><div className="pg-document-title"><h2 tabIndex={-1}>{item.subject}</h2>{(!proposal || job) && <Badge tone={status === "Completed" ? "success" : status === "Error" ? "danger" : status === "In Review" ? "warning" : "blue"}>{status}</Badge>}</div><div className="pg-document-tools"><button className="pg-text-button" onClick={() => setPreview(item.documents[0])}><FileText size={14} />View original proposal</button>{state.proposalDraft && <button className="pg-text-button" onClick={() => setProposalPreview(true)}>View proposal text</button>}<button className="pg-text-button" onClick={() => setFileDetails(true)}><Info size={14} />File details</button></div></div>{!job && !proposal && <label className="pg-role-picker"><span>Demo role</span><select aria-label="Demo role" value={role} onChange={(event) => setRole(event.target.value as Role)}>{allRoles.map((value) => <option key={value}>{value}</option>)}</select></label>}</div>
       {job ? <div className="pg-processing-state" role="status">{job.status === "Processing" ? <><LoaderCircle className="pg-spinner" size={32} /><h3>Converting document to text…</h3><p>{job.message}</p><progress className="pg-conversion-progress" max={100} value={job.progress ?? 0} aria-label="Text conversion progress" /><small>{job.progress ?? 0}% · Processing in your browser</small><button className="pg-button" onClick={() => conversions.current.get(item.id)?.abort()}>Cancel conversion</button></> : <><FileText size={32} /><h3>{job.status === "Error" ? "Text conversion failed" : "Your document is ready to convert"}</h3><p>{job.error ?? "Convert the document into editable text in your browser."}</p><div><button className="pg-button" onClick={openIntake}>Back to documents</button><button className="pg-button pg-primary" onClick={() => void processDocument(item.id)}>{job.status === "Error" ? "Retry conversion" : "Convert to text"}</button></div></>}</div> : <>
         <div className="pg-manual-draft"><span><strong>{proposal ? "1. Review the proposal text" : "2. Finance note prepared"}</strong><small>{proposal ? "Check the extracted text, then choose Convert to note. Your original is preserved." : `${state.generation?.engine === "ai" ? "AI drafting" : "Local drafting"} · Based on your note examples · ${state.appliedRuleIds?.length ?? 0} supplied rules matched.`}</small></span><button className="pg-text-button" onClick={() => void copyText()}><Copy size={13} />{proposal ? "Copy text" : "Copy note"}</button></div>
         {preparingNote && <div className="pg-note-progress" role="status"><LoaderCircle size={17} className="pg-spinner" /><span>Preparing a note from your proposal and note examples…</span><button className="pg-text-button" onClick={() => noteRequests.current.get(selected)?.abort()}>Cancel note creation</button></div>}
         {noteError && <div className="pg-note-error" role="alert">{noteError}</div>}
-        <Studio key={`${item.id}-${state.draftKind}`} item={item} state={state} cases={cases} states={states} documents={documents} editable={editable} onChange={changeNote} onInsert={insertDraft} onPreview={setPreview} onOpen={openCase} onUpload={() => setUploading(true)} onLayoutChange={(notingLayout) => { if (editable) update({ notingLayout, savedAt: new Date().toISOString(), checks: [], status: "Human-edited draft" }); }} />
+        <Studio key={`${item.id}-${state.draftKind}`} item={item} state={state} cases={cases} states={states} documents={documents} editable={editable} onChange={changeNote} onInsert={insertDraft} onPreview={setPreview} onOpen={openCase} onUpload={() => setUploading(true)} />
         <FinanceActions key={`${item.id}-${state.draftKind}-${state.movements.length}-${role}`} item={item} state={state} role={role} editable={editable} exporting={exporting} preparingNote={preparingNote} onSave={saveDraft} onHistory={() => setHistory(true)} onExport={(format) => void download(format)} onTextDownload={item.imported ? downloadText : undefined} onConvertToNote={proposal ? () => void convertToNote() : undefined} onAction={action} />
       </>}
     </>}
     <footer className="pg-app-footer"><span>Session workspace</span><span>Files and changes clear on reload</span></footer>
     {notice && <div className="pg-toast" role="status"><span>{notice}</span><button aria-label="Dismiss notification" onClick={() => setNotice("")}><X size={15} /></button></div>}
-    {previewNote && (item.workspace === "sws-procurement" ? <SwsPrintPreview item={item} state={state} onClose={() => setPreviewNote(false)} /> : <ProposalPreview item={item} state={state} documents={documents} onClose={() => setPreviewNote(false)} onSource={setPreview} />)}
+    {previewNote && <ProposalPreview item={item} state={state} documents={documents} onClose={() => setPreviewNote(false)} onSource={setPreview} />}
     {preview && <DocumentPreview document={preview} onClose={() => setPreview(null)} />}
     {proposalPreview && state.proposalDraft && <Modal title="Proposal text used for this note" onClose={() => setProposalPreview(false)} wide><p className="pg-preserve-lines">{state.proposalDraft.text}</p></Modal>}
     {fileDetails && <Modal title="File details" onClose={() => setFileDetails(false)}><dl className="pg-file-metadata"><div><dt>Document</dt><dd>{item.documents[0].original?.name ?? item.subject}</dd></div><div><dt>Reference</dt><dd>{item.id}</dd></div><div><dt>Department</dt><dd>{item.section}</dd></div><div><dt>Date</dt><dd>{item.date}</dd></div><div><dt>Status</dt><dd>{status}</dd></div><div><dt>Assigned to</dt><dd>{getPath(item.branch, state.terminal)[state.level]}</dd></div><div><dt>Source</dt><dd>{item.documents[0].source}</dd></div>{item.documents[0].original && <div><dt>File size</dt><dd>{item.documents[0].original.size.toLocaleString()} bytes</dd></div>}{item.documents[0].extraction && <div><dt>Conversion</dt><dd>{item.documents[0].extraction.method}{item.documents[0].extraction.method.includes("PDF") ? ` · ${item.documents[0].extraction.pages} pages` : ""}</dd></div>}</dl></Modal>}

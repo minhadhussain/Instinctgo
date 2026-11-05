@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Camera, Check, ChevronDown, CircleAlert, FileText, History, LoaderCircle, Search, UploadCloud, X } from "lucide-react";
 import { DOCUMENT_ACCEPT, displayStatus, validateDocument, type IntakeJob } from "@/lib/playground/intake";
-import type { CaseDefinition, CaseState, ReferenceDocument, WorkspaceKind } from "@/lib/playground/types";
+import type { CaseDefinition, CaseState, ReferenceDocument } from "@/lib/playground/types";
 import { Badge } from "./ui";
 import { ScanDocument } from "./scan-document";
 import { AssistantPanel } from "./assistant-panel";
@@ -13,10 +13,9 @@ interface Props {
   sample: { title: string; proposalUrl: string; proposalName: string }; onPreview: (document: ReferenceDocument) => void;
   onUpload: (file: File, progress: (value: number) => void, signal: AbortSignal) => Promise<string>;
   onProcess: (id: string) => void; onOpen: (id: string) => void;
-  workspace?: WorkspaceKind;
 }
 
-export function DocumentIntake({ cases, states, jobs, sample, onPreview, onUpload, onProcess, onOpen, workspace }: Props) {
+export function DocumentIntake({ cases, states, jobs, sample, onPreview, onUpload, onProcess, onOpen }: Props) {
   const picker = useRef<HTMLInputElement>(null);
   const operation = useRef<AbortController | null>(null);
   const sampleRequest = useRef<AbortController | null>(null);
@@ -60,7 +59,7 @@ export function DocumentIntake({ cases, states, jobs, sample, onPreview, onUploa
       const response = await fetch(sample.proposalUrl, { signal: controller.signal });
       if (!response.ok) throw new Error("The sample proposal could not be loaded. Please try again.");
       const blob = await response.blob();
-      if (!controller.signal.aborted) await receive([new File([blob], sample.proposalName, { type: sample.proposalName.endsWith(".txt") ? "text/plain" : "application/pdf" })]);
+      if (!controller.signal.aborted) await receive([new File([blob], sample.proposalName, { type: "application/pdf" })]);
     } catch (cause) { if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "The sample could not be loaded."); }
     finally { setLoadingSample(false); }
   }
@@ -88,7 +87,7 @@ export function DocumentIntake({ cases, states, jobs, sample, onPreview, onUploa
         <div className="pg-history-list" data-lenis-prevent>{history.map((item) => { const status = displayStatus(states[item.id], jobs[item.id]); return <button key={item.id} className="pg-history-item" onClick={() => onOpen(item.id)}><span className="pg-history-icon"><FileText size={18} /></span><span><strong>{item.documents[0]?.title ?? item.subject}</strong><small>{item.id} · {item.date}</small><Badge tone={status === "Completed" ? "success" : status === "Error" ? "danger" : status === "In Review" ? "warning" : "blue"}>{status}</Badge></span><ArrowRight size={13} /></button>; })}{!history.length && <div className="pg-history-empty"><FileText size={24} /><p>{cases.length ? "No matching documents." : "Your uploaded proposals will appear here."}</p>{cases.length > 0 && <button className="pg-text-button" onClick={() => { setQuery(""); setFilter(""); }}>Clear filters</button>}</div>}</div>
       </details>
     </main>
-    <aside className="pg-intake-sidebar pg-intake-assistant" aria-label="Proposal AI Assistant"><AssistantPanel libraryOnly intake workspace={workspace} documents={[]} onPreview={onPreview} /></aside>
+    <aside className="pg-intake-sidebar pg-intake-assistant" aria-label="Proposal AI Assistant"><AssistantPanel libraryOnly intake documents={[]} onPreview={onPreview} /></aside>
     {scanning && <ScanDocument onCapture={(file) => void receive([file])} onClose={() => setScanning(false)} />}
   </div>;
 }

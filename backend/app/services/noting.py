@@ -70,21 +70,6 @@ def money_value(text: str) -> float | None:
 
 
 def validate_note_content(note: NoteContent, request: NoteDraftRequest, library: dict) -> None:
-    if request.drafting_style == "sws-procurement":
-        headings = [
-            "Issue / Proposal Summary",
-            "Financial Implication & Budget Head",
-            "Rule Justification (GFR / Assam Procurement)",
-            "Recommendation / Seeking Approval",
-        ]
-        if note.category != "procurement" or note.applied_rules:
-            raise ValueError("SWS procurement rulebooks have not been supplied")
-        if [section.heading for section in note.sections] != headings:
-            raise ValueError("SWS noting requires the four prescribed sections")
-        if sum(len(section.text.split()) for section in note.sections) > request.word_limit:
-            raise ValueError("SWS draft exceeds the requested word target")
-        note.paragraphs = [section.text for section in note.sections]
-        note.recommendation = note.sections[-1].text
     sources = {request.proposal_id: request.proposal_text}
     sources.update({doc.id: doc.text for doc in request.supporting_documents})
     if len({fact.key for fact in note.facts}) != len(note.facts):
@@ -221,14 +206,7 @@ def validate_note_content(note: NoteContent, request: NoteDraftRequest, library:
                 "The consultancy rules do not specify refund entitlement or a refund percentage; "
                 "obtain the applicable contract / refund authority."
             )
-    narrative = "\n".join(
-        [
-            note.subject,
-            *note.paragraphs,
-            *(section.text for section in note.sections),
-            note.recommendation,
-        ]
-    )
+    narrative = "\n".join([note.subject, *note.paragraphs, note.recommendation])
     if any(money_value(match.group()) not in allowed for match in MONEY.finditer(narrative)):
         raise ValueError("The draft contains an unsupported monetary amount")
     if not ids and not any(
@@ -261,8 +239,6 @@ async def draft_note(request: NoteDraftRequest) -> NoteDraftResponse:
             *(doc.model_dump() for doc in request.supporting_documents),
         ],
         "note_library": library,
-        "drafting_style": request.drafting_style,
-        "word_limit": request.word_limit,
     }
     try:
         output = await asyncio.wait_for(
