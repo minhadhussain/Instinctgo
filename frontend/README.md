@@ -37,17 +37,19 @@ are retained separately for the browser session. Reloading clears the session.
 
 `src/lib/playground/note-draft.ts` creates a local examination note using the format profiles
 in `samples/noting-library.json`, including refund, GPF, consultancy and general requests.
-Local drafting extracts common labelled or free-form particulars and quotes the request;
-missing facts are left for clarification. It is a deterministic draft, not an AI-generated summary.
+Local drafting extracts common labelled or free-form particulars and quotes the request.
+Generated notes contain the case facts and examination without boilerplate clarification paragraphs,
+conditional closing paragraphs or disclaimer footers.
 
 When the backend reports an available AI provider, `note-service.ts` submits the reviewed text
 and supporting text to `/noting/draft` for structured AI drafting. Provider failures fall back
 to local drafting. The workspace labels the engine used. Set `OPENAI_API_KEY` in `backend/.env`
 to enable AI; credentials stay on the backend. Combined input is limited to 200,000 characters.
 
-The supplied GPF and Consultancy Service rulebooks are selected by the proposal's subject and
-institution. Applied entries link to the correct original PDF page. Consultancy service-tax
-wording is flagged for transaction-date verification. Notes with no matching rule identify
-the required policy. See `samples/README.md` for source maintenance.
+The reference panel exposes the full supplied GPF and Consultancy Service rulebooks for every
+generated note, with search and rulebook filtering. Provisions used in the note appear first;
+other provisions are available for reference and manual citation. All entries link to their source
+PDF pages. Automatic calculations still use the provisions selected for the proposal's subject and
+institution. See `samples/README.md` for source maintenance.
 
 Run the workflow tests with `npm run test:playground --workspace @instinctgo/frontend`.

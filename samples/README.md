@@ -21,7 +21,7 @@ Sample notes need not follow these particular rules. They are examples of format
 2. Convert it to text and review the extracted content.
 3. Choose **Convert to note** as a separate action.
 4. Prepare the note using the applicable supplied rules.
-5. Show the applied rules beside the note. Inline highlighting is disabled for now.
+5. Browse the full rule reference library beside the note. Inline highlighting is disabled for now.
 6. Review and edit the note.
 
 See `case-01/README.md` and `case-01/case-manifest.json` for the source mapping and regeneration command.

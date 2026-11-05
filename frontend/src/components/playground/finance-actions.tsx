@@ -50,7 +50,6 @@ export function FinanceActions({ item, state, role, editable, exporting, onSave,
     </div>
     {action && <Modal title={labels[action]} onClose={() => setAction(null)}>
       <p className="pg-help">{item.subject} · Acting as {role}</p>
-      {action === "approve" && <p className="pg-help">Confirm this decision as the assigned authority. This records a demo signature in the current session.</p>}
       {needsVerification && <label className="pg-checkbox pg-finance-verification"><input type="checkbox" checked={verified} onChange={(event) => setVerified(event.target.checked)} />I compared the proposal and note, verified the sources and facts, and reviewed the conditions and next action.</label>}
       <form onSubmit={(event) => { event.preventDefault(); const failure = onAction(action, remarks, verified, name); if (failure) setError(failure); else setAction(null); }}>
         {action === "approve" && <label className="pg-field">Signatory name<input autoComplete="off" required value={name} onChange={(event) => setName(event.target.value)} /></label>}

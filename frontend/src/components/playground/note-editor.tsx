@@ -54,10 +54,10 @@ export function NoteEditor({ item, state, editable, documents, onChange, onPrevi
         <div className="pg-note-subject"><span>Subject</span><strong>{item.subject}</strong></div>
         <div className="pg-note-reference">{item.date} · {item.section}</div>
         <div onClick={(event) => { if ((event.target as HTMLElement).closest("a")) { event.preventDefault(); openSource(event.target as HTMLElement); } }}><EditorContent editor={editor} /></div>
-        {state.signature && <div className="pg-signature"><strong>{state.signature.name}</strong><small>{state.signature.role} · {new Date(state.signature.date).toLocaleString()} · Demo signature</small></div>}
+        {state.signature && <div className="pg-signature"><strong>{state.signature.name}</strong><small>{state.signature.role} · {new Date(state.signature.date).toLocaleString()}</small></div>}
       </article>
     </div>
-    <div className="pg-editor-footer"><span>{state.savedAt ? "Saved in this session" : item.imported ? "Manual draft" : "Prepared sample draft"}</span><span>{state.text.trim().split(/\s+/).filter(Boolean).length} words · {editable ? "Autosave on" : "Read-only"}</span></div>
+    <div className="pg-editor-footer"><span>{state.savedAt ? "Saved" : "Ready"}</span><span>{state.text.trim().split(/\s+/).filter(Boolean).length} words · {editable ? "Autosave on" : "Read-only"}</span></div>
     {linking && <Modal title="Cite a source" onClose={() => setLinking(false)}><p className="pg-help">Select a source to link the selected text or insert a citation.</p>{documents.map((doc) => <button className="pg-source-row" key={doc.id} onClick={() => { if (!editor) return; const href = `#ref-${doc.id}`; if (editor.state.selection.empty) editor.chain().focus().insertContent(`<a href="${escapeHtml(href)}">[${escapeHtml(doc.title)}]</a>`).run(); else editor.chain().focus().setLink({ href }).run(); setLinking(false); }}><Link2 size={16} /><span><strong>{doc.title}</strong><small>{doc.status} · {doc.locator}</small></span></button>)}</Modal>}
   </section>;
 }

@@ -20,10 +20,11 @@ from app.schemas.noting import (
 
 logger = structlog.get_logger(__name__)
 PACKAGED_SOURCES = BACKEND_DIR / "resources" / "noting"
+REPOSITORY_SOURCES = BACKEND_DIR.parent / "samples"
 SOURCE_DIR = (
-    PACKAGED_SOURCES
-    if (PACKAGED_SOURCES / "noting-library.json").is_file()
-    else BACKEND_DIR.parent / "samples"
+    REPOSITORY_SOURCES
+    if (REPOSITORY_SOURCES / "noting-library.json").is_file()
+    else PACKAGED_SOURCES
 )
 LIBRARY_PATH = SOURCE_DIR / "noting-library.json"
 MONEY = re.compile(
@@ -67,6 +68,25 @@ def money_value(text: str) -> float | None:
         else 1
     )
     return round(float(re.sub(r"[, ]", "", number.group())) * scale, 2)
+
+
+def clean_note_paragraphs(paragraphs: list[str], library: dict) -> list[str]:
+    prefixes = [value.casefold() for value in library["notePresentation"]["omitPrefixes"]]
+
+    def boilerplate(text: str) -> bool:
+        value = normal(re.sub(r"^\s*\d+[.)]\s*", "", text)).casefold()
+        return any(value.startswith(prefix) for prefix in prefixes)
+
+    cleaned = []
+    for paragraph in paragraphs:
+        for block in re.split(r"\n\s*\n", paragraph):
+            if boilerplate(block):
+                continue
+            sentences = re.split(r"(?<=[.!?])(?=\s+[A-Z])", block)
+            text = "".join(sentence for sentence in sentences if not boilerplate(sentence)).strip()
+            if text:
+                cleaned.append(text)
+    return cleaned
 
 
 def validate_note_content(note: NoteContent, request: NoteDraftRequest, library: dict) -> None:
@@ -214,12 +234,10 @@ def validate_note_content(note: NoteContent, request: NoteDraftRequest, library:
     ):
         missing = "The applicable institutional policy and authority delegation must be supplied."
         note.missing_information.append(missing)
-        note.paragraphs.append(missing)
-    if note.findings:
-        note.paragraphs.append(
-            "Points requiring resolution: "
-            + " ".join(f"{finding.title}. {finding.detail}" for finding in note.findings)
-        )
+    note.paragraphs = clean_note_paragraphs(note.paragraphs, library)
+    note.recommendation = ""
+    if not note.paragraphs:
+        raise ValueError("The response contains no substantive note text")
 
 
 async def draft_note(request: NoteDraftRequest) -> NoteDraftResponse:

@@ -26,7 +26,7 @@ export async function requestNoteDraft(input: NoteInput, signal: AbortSignal): P
     }, signal, 70000);
     signal.throwIfAborted();
     if (draft.engine !== "ai" || typeof draft.subject !== "string" || typeof draft.routing !== "string"
-      || typeof draft.recommendation !== "string" || !Array.isArray(draft.paragraphs) || draft.paragraphs.length < 3
+      || typeof draft.recommendation !== "string" || !Array.isArray(draft.paragraphs) || !draft.paragraphs.length
       || !draft.paragraphs.every((paragraph) => typeof paragraph === "string")
       || !Array.isArray(draft.facts) || !draft.facts.every((fact) => factIsGrounded(fact, input))
       || !Array.isArray(draft.applied_rules) || !Array.isArray(draft.missing_information)

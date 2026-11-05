@@ -22,7 +22,7 @@ export function respondToRules(question: string, references: ReferenceDocument[]
   const number = question.match(/\brules?\s+(\d+(?:\.\d+)*(?:\([a-z]+\))?)/i)?.[1] ?? question.match(/\b\d+(?:\.\d+)+(?:\([ivx]+\))?/i)?.[0];
   const numbered = number ? rules.filter((doc) => new RegExp(`(?:^|[^\\d.])${number.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\d.])`, "i").test(doc.title)) : [];
   const matches = selected ? [selected] : number ? numbered : ranked.filter((result) => result.score === ranked[0]?.score).slice(0, 3).map((result) => result.doc);
-  if (!matches.length) return { text: "Select an applied rule in Context, or ask for a specific rule number or topic.", citations: [] };
+  if (!matches.length) return { text: "Select a rule reference in Context, or ask for a specific rule number or topic.", citations: [] };
   return { text: matches.map((doc) => `${doc.title}\n${doc.locator}\n\n${doc.content.slice(1).join("\n\n")}`).join("\n\n—\n\n"), citations: matches.map((doc) => doc.id) };
 }
 
@@ -37,12 +37,12 @@ export const demoAI: AIAdapter = {
   respond({ question, mode, current, state, cases, states, references = [], contextId }) {
     const q = question.toLowerCase();
     const context = references.find((doc) => doc.id === contextId);
-    if (/^(approve|sign|submit|forward)\b/.test(q.trim())) return { text: "The chatbot does not edit notes or move files, and cannot approve or sign. Use the authorised human workflow actions below the editor.", citations: [] };
-    if (context && /summar|explain|clarif|rule|clause|source|document/.test(q)) return { text: `${context.title} (${context.status})\n\n${context.content.slice(context.original ? 0 : 1).join("\n\n").slice(0, 2000)}`, citations: [context.id] };
+    if (/^(approve|sign|submit|forward)\b/.test(q.trim())) return { text: "Use the workflow actions below the editor to submit, forward or sign the note.", citations: [] };
+    if (context && /summar|explain|clarif|rule|clause|source|document/.test(q)) return { text: `${context.title}\n\n${context.content.slice(context.original ? 0 : 1).join("\n\n").slice(0, 2000)}`, citations: [context.id] };
     if (state.draftKind === "proposal") {
       if (/rule|clause|polic/.test(q)) return { text: "Review the proposal text, then click Convert to note. The applicable rules will appear beside the generated note at that stage.", citations: [] };
       if (/missing|check|required|details/.test(q)) {
-        try { const draft = buildLocalNote(noteInput(current, state)); return { text: `${draft.facts.map((fact) => `${factLabels[fact.key]}: ${fact.value}`).join("\n") || "No labelled particulars were found; the proposal can still be drafted for examination."}\n\n${draft.missing_information.length ? `To confirm:\n${draft.missing_information.join("\n")}` : "Review the stated particulars, then choose Convert to note."}`, citations: [current.documents[0].id] }; }
+        try { const draft = buildLocalNote(noteInput(current, state)); return { text: draft.facts.map((fact) => `${factLabels[fact.key]}: ${fact.value}`).join("\n") || state.text.slice(0, 1800), citations: [current.documents[0].id] }; }
         catch (error) { return { text: error instanceof Error ? error.message : "Review the proposal text before drafting.", citations: [] }; }
       }
       if (/convert|next|note/.test(q) || mode === "draft") return { text: "Use the Convert to note button below the editor. It prepares a note from your reviewed proposal using the supplied noting examples, while preserving the proposal text separately.", citations: [] };
@@ -50,25 +50,24 @@ export const demoAI: AIAdapter = {
     }
     if (current.caseTemplateId === NOTE_TEMPLATE_ID) {
       if (/rule|clause|polic/.test(q)) {
-        const rules = references.filter((doc) => state.appliedRuleIds?.includes(doc.id));
-        if (!rules.length) return { text: "No relevant provision was identified in the supplied rule library for this proposal. The note lists the policy or clarification needed before a final decision.", citations: [] };
-        if (/which|applied|relevant/.test(q)) return { text: rules.map((doc) => `${doc.title}: ${doc.application}`).join("\n\n"), citations: rules.map((doc) => doc.id) };
+        const rules = references.filter(isRuleDocument);
+        if (/which|applied|relevant|reference/.test(q)) return { text: rules.map((doc) => `${doc.title}\n${doc.locator}`).join("\n\n"), citations: rules.map((doc) => doc.id) };
         return respondToRules(question, rules, contextId ?? "");
       }
-      if (mode === "draft") return { text: "Suggested next action for this proposal", draft: current.recommendation, citations: state.appliedRuleIds ?? [] };
-      return { text: `${current.facts.map((fact) => `${fact.label}: ${fact.value}`).join("\n")}\n\n${current.recommendation}${state.generation?.missingInformation.length ? `\n\nTo confirm:\n${state.generation.missingInformation.join("\n")}` : ""}`, citations: [current.documents[0].id, ...(state.appliedRuleIds ?? [])] };
+      if (mode === "draft") return { text: "Suggested wording", draft: current.recommendation || current.note.at(-1)?.text, citations: state.appliedRuleIds ?? [] };
+      return { text: `${current.facts.map((fact) => `${fact.label}: ${fact.value}`).join("\n")}\n\n${current.explanation.join("\n\n")}`, citations: [current.documents[0].id, ...(state.appliedRuleIds ?? [])] };
     }
     if (current.caseTemplateId === GPF_CASE_ID) {
       if (/rule|clause|polic/.test(q)) return respondToRules(question, references.filter((doc) => state.appliedRuleIds?.includes(doc.id)), contextId ?? "");
       if (mode === "draft") return { text: "Suggested next action", draft: current.recommendation, citations: ["du-gpf-12-1"] };
-      return { text: `${current.facts.map((fact) => `${fact.label}: ${fact.value}`).join("\n")}\n\n${current.recommendation}\n\nThe service, account and educational particulars still require the checks described in the note.`, citations: state.appliedRuleIds ?? [] };
+      return { text: current.facts.map((fact) => `${fact.label}: ${fact.value}`).join("\n"), citations: state.appliedRuleIds ?? [] };
     }
     if (current.imported) {
       const source = current.documents[0];
       if (mode === "draft") return { text: "Drafting aid based on the file name only. Complete the facts and financial examination from the original.", citations: [source.id], draft: `The proposal titled “${current.subject}” is placed for financial examination. The requested amount, budget availability, supporting records and applicable provisions are to be recorded after review of the original document.` };
       if (/rule|clause|polic/.test(q)) return { text: "No applicable rule has been retrieved for this upload. Select an approved reference in the context menu to inspect its exact text.", citations: [] };
       if (/summar|explain|document|proposal/.test(q)) return { text: `${source.extraction || source.original?.mime.startsWith("text/") || /\.(txt|md)$/i.test(source.title) ? "Source text excerpt" : "Source status"}:\n\n${source.content.join("\n\n").slice(0, 1600)}`, citations: [source.id] };
-      return { text: "Select a source to read its converted text, or ask for help drafting the next action. Live AI analysis is not connected.", citations: [] };
+      return { text: "Select a source to read its text, or ask for help drafting the next action.", citations: [] };
     }
     if (/summar/.test(q)) return { text: `${current.description}\n\n${current.explanation.join("\n\n")}`, citations: current.documents.map((doc) => doc.id) };
     const rule = current.documents.at(-1)!;

@@ -62,6 +62,24 @@ def test_new_proposals_need_no_demo_reference(proposal, content):
     assert "DEMO-GPF-001" not in proposal.proposal_text
 
 
+def test_ai_note_omits_clarification_footer_closing_and_disclaimers(proposal, content):
+    original = list(content.paragraphs)
+    content.paragraphs.extend(
+        [
+            "The following particulars / records require clarification "
+            "before a final recommendation: "
+            "Application date is not clearly stated. The requested amount is not clearly stated.",
+            "If the particulars are verified, the file may be placed "
+            "before the competent authority.",
+            "Put up for your kind perusal and necessary order please.",
+            "This note is not an official document.",
+        ]
+    )
+    noting.validate_note_content(content, proposal, noting.load_note_library())
+    assert content.paragraphs == original
+    assert content.recommendation == ""
+
+
 def test_output_rejects_example_fact_leakage(proposal, content):
     content.facts[0].value = "Dr. Aditi Bora"
     with pytest.raises(ValueError, match="not copied"):

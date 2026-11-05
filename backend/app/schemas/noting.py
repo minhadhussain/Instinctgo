@@ -85,9 +85,9 @@ class NoteContent(StrictModel):
     routing: str = Field(min_length=1, max_length=500)
     facts: list[NoteFact] = Field(max_length=20)
     paragraphs: list[Annotated[str, Field(min_length=1, max_length=4000)]] = Field(
-        min_length=3, max_length=10
+        min_length=1, max_length=10
     )
-    recommendation: str = Field(min_length=1, max_length=2000)
+    recommendation: str = Field(max_length=2000)
     applied_rules: list[AppliedRule] = Field(max_length=24)
     missing_information: list[Annotated[str, Field(min_length=1, max_length=1200)]] = Field(
         max_length=20

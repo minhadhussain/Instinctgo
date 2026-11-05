@@ -1,7 +1,7 @@
 import type { jsPDF } from "jspdf";
 import type { NoteBlock } from "./gpf-case";
 
-export function drawDocumentPdf(pdf: jsPDF, title: string, subtitle: string, blocks: NoteBlock[], footer = "Demonstration document - fictional applicant; not an official order") {
+export function drawDocumentPdf(pdf: jsPDF, title: string, subtitle: string, blocks: NoteBlock[], footer = "") {
   const margin = 18;
   const width = pdf.internal.pageSize.getWidth() - margin * 2;
   const bottom = pdf.internal.pageSize.getHeight() - 21;
@@ -57,7 +57,7 @@ export function drawDocumentPdf(pdf: jsPDF, title: string, subtitle: string, blo
   const pages = pdf.getNumberOfPages();
   for (let page = 1; page <= pages; page++) {
     pdf.setPage(page); pdf.setFont("helvetica", "normal"); pdf.setFontSize(8); pdf.setTextColor(90);
-    pdf.text(printable(footer), margin, pdf.internal.pageSize.getHeight() - 12);
+    if (footer) pdf.text(printable(footer), margin, pdf.internal.pageSize.getHeight() - 12);
     pdf.text(`${page} / ${pages}`, margin + width, pdf.internal.pageSize.getHeight() - 12, { align: "right" });
   }
   pdf.setTextColor(0);

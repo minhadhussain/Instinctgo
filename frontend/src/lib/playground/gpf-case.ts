@@ -18,7 +18,7 @@ export interface GpfFacts {
 }
 
 export const gpfProposalText = `DIBRUGARH UNIVERSITY
-DEMONSTRATION PROPOSAL - ALL APPLICANT DETAILS ARE FICTIONAL
+GPF ADVANCE APPLICATION
 
 Case reference: DEMO-GPF-001
 Application date: 2026-11-04
@@ -61,18 +61,17 @@ The supporting declaration and illustrative education-fee schedule at Annexure A
 Yours faithfully,
 Dr. Aditi Bora
 Assistant Professor, Department of Physics
-(Fictional applicant; demonstration only)
 
-ANNEXURE A - SUPPORTING PARTICULARS (DEMONSTRATION)
+ANNEXURE A - SUPPORTING PARTICULARS
 
-The following particulars are supplied by the fictional applicant and remain subject to verification by Establishment and Finance & Accounts.
+Education expense particulars supplied with the application:
 
 Tuition fee: INR 120000
 Hostel fee: INR 40000
 Books and course materials: INR 20000
 Total education expenses: INR 180000
 
-The daughter is stated to be actually dependent on the subscriber. The fee schedule, service particulars, GPF balance and absence of any outstanding advance are to be checked against the relevant University records before sanction or release. No actual admission letter, bank account or verified ledger is represented by this demonstration.`;
+The applicant states that the daughter is actually dependent on the subscriber.`;
 
 function value(text: string, label: string) {
   const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -136,12 +135,10 @@ export function gpfNoteBlocks(f: GpfFacts): NoteBlock[] {
     { kind: "table", rows: [["Sl. No.", "Name of applicant / GPF account", "Department / Purpose", "Advance requested"], ["1", `${f.applicant}\n${f.designation}\n${f.account}`, `${f.department}\nHigher education of dependent daughter`, amount(f.amount)]] },
     { kind: "paragraph", text: `We have received an application dated ${longDate(f.applicationDate)} from ${f.applicant}, ${f.designation}, ${f.department}, along with a declaration of service and GPF particulars and an illustrative education-fee schedule at Annexure A. The application may kindly be seen at Flag 'A' (${f.reference}).` },
     { kind: "paragraph", text: `The above-mentioned applicant has requested a refundable GPF advance of ${amount(f.amount)} towards the higher education of the actually dependent daughter, ${f.dependent}, pursuing ${f.course} at ${f.institution}. The applicant states that available personal resources are insufficient. This purpose falls under Rule 12.1.1(iii), subject to the sanctioning authority being satisfied about the pecuniary circumstances and intended use.` },
-    { kind: "paragraph", text: `The applicant states that the permanent substantive appointment commenced on ${longDate(f.appointment)}, CPF membership existed before 01 February 2005 and University service continued on 31 March 2013. These particulars correspond to the subscriber conditions in Rule 5 and require verification from the service records.` },
-    { kind: "paragraph", text: `The stated subscription-and-interest balance is ${amount(f.balance)}. The 50% ceiling under Rule 12.1.2 is ${amount(f.balance * 0.5)}; the requested ${amount(f.amount)} is within that ceiling. The applicant declares no previous advance outstanding, to be verified under Rule 12.1.3. The balance, declaration and educational supporting particulars may please be checked by Finance & Accounts / Establishment before sanction or release.` },
+    { kind: "paragraph", text: `The applicant states that the permanent substantive appointment commenced on ${longDate(f.appointment)}, CPF membership existed before 01 February 2005 and University service continued on 31 March 2013. Rule 5 sets out the corresponding subscriber conditions.` },
+    { kind: "paragraph", text: `The stated subscription-and-interest balance is ${amount(f.balance)}. The 50% ceiling under Rule 12.1.2 is ${amount(f.balance * 0.5)}; the requested ${amount(f.amount)} is within that ceiling. The applicant declares no previous advance outstanding under Rule 12.1.3.` },
     { kind: "paragraph", text: `The proposed principal recovery is ${f.instalments} equal monthly instalments of ${amount(f.monthly)} (${f.instalments} x ${amount(f.monthly)} = ${amount(f.amount)}), satisfying the maximum of 36 whole-rupee instalments in Rule 12.1.4. Recovery shall commence from the first occasion on which full-month pay is drawn after payment of the advance, as provided in Rule 12.1.5.` },
-    { kind: "paragraph", text: `Interest shall be applied at the rate determined by the University under Rule 12.1.6 and ordinarily recovered from pay in the month following full recovery of the principal.${f.instalments > 20 ? " As repayment exceeds twenty months, the subscriber may request recovery of interest in two equal monthly instalments where Rule 12.1.6 permits." : ""} No numerical interest rate is assumed in this note.` },
-    { kind: "paragraph", text: `If the particulars are verified and the request is found justified, the file may be placed before the Vice-Chancellor for sanction of ${amount(f.amount)} under Rule 12.1. Approval is requested for an advance from the subscriber's GPF subscription-and-interest balance; this is not a non-refundable withdrawal under Rule 13. Release shall follow the recorded sanction and the applicable account verification.` },
-    { kind: "paragraph", text: "Put up for your kind perusal and necessary order please." },
+    { kind: "paragraph", text: `Interest shall be applied at the rate determined by the University under Rule 12.1.6 and ordinarily recovered from pay in the month following full recovery of the principal.${f.instalments > 20 ? " As repayment exceeds twenty months, the subscriber may request recovery of interest in two equal monthly instalments where Rule 12.1.6 permits." : ""}` },
     { kind: "paragraph", text: `Dealing Assistant\nFinance & Accounts\n${longDate(f.applicationDate)}` },
   ];
 }

@@ -1,5 +1,6 @@
 import library from "../../../../samples/noting-library.json";
 import { escapeHtml } from "./renderer";
+import { cleanNoteParagraphs } from "./note-content";
 import type { CaseDefinition, CaseState, Finding, ReferenceDocument } from "./types";
 
 export type NoteCategory = "fee-refund" | "admission-refund" | "hostel-refund" | "service-refund" | "gpf-advance" | "gpf-withdrawal" | "gpf-final" | "consultancy" | "leave" | "procurement" | "general";
@@ -132,6 +133,16 @@ export function rulebookFor(rule: (typeof library.rules)[number]) {
   return "rulebook" in rule && rule.rulebook === "consultancy" ? library.rulebooks.consultancy : library.rulebooks.gpf;
 }
 
+export const allRuleReferences: ReferenceDocument[] = library.rules.map((rule) => {
+  const book = rulebookFor(rule), name = book.path.split("/").at(-1)!;
+  return { id: rule.id, title: rule.title, type: "Rule reference", source: book.title, date: book.issued, effectiveDate: book.effective, version: book.version, status: "Current", department: "Finance & Accounts", locator: `${name} · page ${rule.page}`, content: [`Extract / summary from ${book.title}.`, rule.excerpt], highlight: -1, file: { name, url: book.url, page: rule.page } };
+});
+
+export function noteReferences(item: CaseDefinition, state: CaseState): ReferenceDocument[] {
+  const references = [...item.documents, ...state.extraDocuments, ...(state.draftKind === "note" ? allRuleReferences : [])];
+  return references.filter((doc, index) => references.findIndex((other) => other.id === doc.id) === index);
+}
+
 export function rulesForProposal(category: NoteCategory, text: string, institution = institutionOf(text)) {
   return library.rules.filter((rule) => {
     const book = rulebookFor(rule);
@@ -164,9 +175,9 @@ export function buildLocalNote(input: NoteInput): DraftNote {
   const flow = compact(text);
   const bodyStart = flow.search(/\b(?:I(?:,|\s)|We\s|Please\s|Kindly\s)/);
   const prose = bodyStart >= 0 ? flow.slice(bodyStart) : flow;
-  const sentences = [...new Intl.Segmenter("en", { granularity: "sentence" }).segment(prose)].map((segment) => segment.segment.trim()).filter((sentence) => sentence.length >= 25 && /request|refund|paid|payment|because|due to|seek|advance|withdraw|leave|purchase|consultanc|client/i.test(sentence));
-  const statement = (sentences.length ? sentences.slice(0, 3).join(" … ") : prose).slice(0, 1600);
-  paragraphs.push(`The applicant's stated request and circumstances are recorded in the following extract: “${statement}${statement.length === 1600 ? "…" : ""}”`);
+  const sentences = cleanNoteParagraphs([...new Intl.Segmenter("en", { granularity: "sentence" }).segment(prose)].map((segment) => segment.segment.trim()).filter((sentence) => sentence.length >= 25 && /request|refund|paid|payment|because|due to|seek|advance|withdraw|leave|purchase|consultanc|client/i.test(sentence)));
+  const statement = (sentences.length ? sentences.slice(0, 3).join(" … ") : cleanNoteParagraphs([prose]).join(" ")).slice(0, 1600);
+  if (statement) paragraphs.push(`The applicant's stated request and circumstances are recorded in the following extract: “${statement}${statement.length === 1600 ? "…" : ""}”`);
   if (input.supporting_documents.length) paragraphs.push(`Supporting material supplied with this case: ${input.supporting_documents.map((doc) => doc.title).join("; ")}. Its contents and relevance should be checked with the proposal.`);
   paragraphs.push(profile.examination);
   const findings: DraftNote["findings"] = [];
@@ -175,21 +186,21 @@ export function buildLocalNote(input: NoteInput): DraftNote {
   if (category === "gpf-advance" && rules.length) {
     if (balance !== undefined && requested !== undefined) {
       const limit = Math.floor(balance * 50) / 100;
-      paragraphs.push(`The stated GPF balance is ${rupees(balance)}, giving a 50% ceiling of ${rupees(limit)} under Rule 12.1.2. The requested ${rupees(requested)} ${requested <= limit ? "is within that stated ceiling, subject to verification of the eligible account balance" : "exceeds that ceiling and cannot be recommended at this amount under the supplied rule"}.`);
+      paragraphs.push(`The stated GPF balance is ${rupees(balance)}, giving a 50% ceiling of ${rupees(limit)} under Rule 12.1.2. The requested ${rupees(requested)} ${requested <= limit ? "is within that stated ceiling" : "exceeds that ceiling"}.`);
       if (requested > limit) findings.push({ kind: "error", title: "GPF advance exceeds the supplied limit", detail: "Obtain a revised request within the verified 50% ceiling before an approval is recorded." });
     } else missing.push("The requested advance and verified subscription-and-interest balance are needed to check the 50% ceiling.");
     const count = Number(fact("instalments"));
     if (Number.isInteger(count) && count > 0) {
       if (count > 36) findings.push({ kind: "error", title: "Repayment period exceeds Rule 12.1.4", detail: "The principal schedule must not exceed 36 equal whole-rupee monthly instalments." });
-      else if (requested !== undefined && requested % count === 0) paragraphs.push(`The stated ${count}-month principal schedule would require ${count} equal instalments of ${rupees(requested / count)} under Rule 12.1.4. The recovery schedule remains to be verified.`);
+      else if (requested !== undefined && requested % count === 0) paragraphs.push(`The stated ${count}-month principal schedule corresponds to ${count} equal instalments of ${rupees(requested / count)} under Rule 12.1.4.`);
     }
-    paragraphs.push("The service / subscriber particulars, permitted purpose, dependency where required and repayment of any previous advance should be verified under Rules 5 and 12.1.1–12.1.3. Recovery must follow Rules 12.1.4–12.1.6; no University interest rate is assumed in this draft.");
+    paragraphs.push("Rule 5 sets out subscriber eligibility. Rules 12.1.1–12.1.3 cover the permitted purpose and previous advances; Rules 12.1.4–12.1.6 govern recovery and interest.");
   } else if (category === "gpf-withdrawal" && rules.length) {
     paragraphs.push("Examine the service / retirement eligibility and permitted purpose under Rule 13.1.1. The permissible withdrawal must be checked against both three-fourths of the verified fund balance and twenty months' pay, taking the lower amount under Rule 13.2. A repayable advance's conditions must not be substituted for these withdrawal conditions.");
     const pay = moneyValue(fact("monthly_pay"));
     if (balance !== undefined && pay !== undefined) {
       const limit = Math.min(Math.floor(balance * 75) / 100, pay * 20);
-      paragraphs.push(`On the stated balance and monthly pay, the lower limit under Rule 13.2 is ${rupees(limit)}. Verify both underlying figures before making a recommendation.`);
+      paragraphs.push(`On the stated balance and monthly pay, the lower limit under Rule 13.2 is ${rupees(limit)}.`);
       if (requested !== undefined && requested > limit) findings.push({ kind: "error", title: "GPF withdrawal exceeds the supplied limit", detail: "Obtain a revised request within the verified limit under Rule 13.2." });
     } else missing.push("Verified GPF balance and monthly pay are required for the Rule 13.2 comparison.");
   }
@@ -201,7 +212,7 @@ export function buildLocalNote(input: NoteInput): DraftNote {
     missing.push("Confirm the transaction-date tax provisions; the supplied consultancy PDF's service-tax wording does not establish a current tax rate.");
     if (category === "service-refund") missing.push("The consultancy rules establish collection and administration requirements but do not specify refund entitlement or a refund percentage; obtain the applicable contract / refund authority.");
     const earnings = moneyValue(fact("consultancy_earnings"));
-    if (relevant("2-1-2") && earnings !== undefined) paragraphs.push(`On the explicitly stated distributable consultancy earnings of ${rupees(earnings)}, Rule 2.1.2 gives a consultants/staff group share of ${rupees(Math.round(earnings * 60) / 100)} and a University share of ${rupees(Math.round(earnings * 40) / 100)}. Within the group share, the 60:40 split corresponds to ${rupees(Math.round(earnings * 36) / 100)} for consultants and ${rupees(Math.round(earnings * 24) / 100)} for eligible staff. These are provisional allocations, subject to verification of the base, staff participation and report-submission condition; no tax or absent-staff reallocation is computed.`);
+    if (relevant("2-1-2") && earnings !== undefined) paragraphs.push(`On the stated distributable consultancy earnings of ${rupees(earnings)}, Rule 2.1.2 gives a consultants/staff group share of ${rupees(Math.round(earnings * 60) / 100)} and a University share of ${rupees(Math.round(earnings * 40) / 100)}. Within the group share, the 60:40 split corresponds to ${rupees(Math.round(earnings * 36) / 100)} for consultants and ${rupees(Math.round(earnings * 24) / 100)} for eligible staff.`);
     if (relevant("2-7")) {
       const days = Number(fact("consultancy_days")), used = Number(fact("yearly_consultancy_days"));
       if (days > 5) findings.push({ kind: "error", title: "Consultancy leave exceeds the single-spell limit", detail: "Rule 2.7 does not permit more than 5 days at a time. Obtain a compliant request before sanction." });
@@ -210,12 +221,7 @@ export function buildLocalNote(input: NoteInput): DraftNote {
     const yearlyFees = moneyValue(fact("annual_consultancy_fees")), salary = moneyValue(fact("annual_salary"));
     if ((relevant("3-i") || relevant("3-iii")) && yearlyFees !== undefined && salary !== undefined && yearlyFees > salary) findings.push({ kind: "error", title: "Consultancy fees exceed the annual salary ceiling", detail: "Examine the yearly fee ceiling under Rule 3(i), also referenced by Rule 3(iii), before recommending acceptance." });
   }
-  if (findings.length) paragraphs.push(`Points requiring resolution: ${findings.map((finding) => `${finding.title}. ${finding.detail}`).join(" ")}`);
-  if (missing.length) paragraphs.push(`The following particulars / records require clarification before a final recommendation: ${missing.join(" ")}`);
-  const authority = rules.length && (category === "gpf-advance" || category === "gpf-withdrawal") ? "Vice-Chancellor" : "competent authority";
-  const recommendation = category === "consultancy" && rules.length ? "Subject to verification of the proposal and resolution of the points above, the file may be routed through the concerned DMC/BoM or Registrar for recommendation of the Chairperson, Advisory Committee, Consultancy Services, and the required University approval. Acceptance, leave or release of earnings should follow the applicable conditions." : `If the particulars are verified and the request is admissible under the applicable provisions, the file may be placed before the ${authority} for consideration and necessary orders. The amount, accounting treatment and any payment / implementation particulars should be confirmed before further action.`;
-  paragraphs.push(recommendation);
-  return { subject, category, institution, routing: profile.routing, facts, paragraphs, recommendation, applied_rules: rules.map((rule) => ({ id: rule.id, reason: "application" in rule && rule.application ? rule.application : `Relevant to the ${titles[category].toLowerCase()}; examine the stated particulars against this provision.` })), missing_information: missing, findings, engine: "local", style_sources: [{ path: library.formatSource, pages: profile.pages, title: profile.title }] };
+  return { subject, category, institution, routing: profile.routing, facts, paragraphs: cleanNoteParagraphs(paragraphs), recommendation: "", applied_rules: rules.map((rule) => ({ id: rule.id, reason: "application" in rule && rule.application ? rule.application : `Relevant to the ${titles[category].toLowerCase()}; examine the stated particulars against this provision.` })), missing_information: missing, findings, engine: "local", style_sources: [{ path: library.formatSource, pages: profile.pages, title: profile.title }] };
 }
 
 export function applyDraftNote(item: CaseDefinition, state: CaseState, draft: DraftNote, now: string): { item: CaseDefinition; state: CaseState } {
@@ -230,14 +236,15 @@ export function applyDraftNote(item: CaseDefinition, state: CaseState, draft: Dr
     return { id: source.id, title: source.title, type: "Supplied rule provision", source: book.title, date: book.issued, effectiveDate: book.effective, version: book.version, status: "Current", department: "Finance & Accounts", locator: `${name} · page ${source.page}`, content: [`Extract / summary from ${book.title}.`, source.excerpt], highlight: -1, file: { name, url: book.url, page: source.page }, application: application.reason };
   });
   const fact = (key: FactKey) => draft.facts.find((entry) => entry.key === key)?.value;
-  const paragraphs = [...draft.paragraphs.filter((paragraph) => paragraph !== draft.recommendation), draft.recommendation];
+  const paragraphs = cleanNoteParagraphs(draft.paragraphs);
+  if (!paragraphs.length) throw new Error("The note contains no substantive text. Please try again.");
   const cell = (text: string) => `<p>${escapeHtml(text).replace(/\n/g, "<br>")}</p>`;
-  const table = [["Sl. No.", "Applicant / Reference", "Department / Request", "Amount stated"], ["1", [fact("applicant") ?? "Applicant not clearly stated", fact("reference")].filter(Boolean).join("\n"), fact("department") ?? draft.subject, fact("amount_requested") ?? fact("consultancy_earnings") ?? fact("amount_mentioned") ?? "Not clearly stated"]];
-  const html = `<p><strong><u>${escapeHtml(draft.routing)}</u></strong></p><p><strong><u>${escapeHtml(draft.subject)}</u></strong></p><table><tbody>${table.map((row, index) => `<tr>${row.map((value) => `<${index ? "td" : "th"}>${cell(value)}</${index ? "td" : "th"}>`).join("")}</tr>`).join("")}</tbody></table>${paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`).join("")}<p>${escapeHtml(library.closing)}</p>`;
-  const text = [draft.routing, draft.subject, table.map((row) => row.join(" | ")).join("\n"), ...paragraphs, library.closing].join("\n\n");
+  const table = [["Sl. No.", "Applicant / Reference", "Department / Request", "Amount stated"], ["1", [fact("applicant"), fact("reference")].filter(Boolean).join("\n") || "—", fact("department") ?? draft.subject, fact("amount_requested") ?? fact("consultancy_earnings") ?? fact("amount_mentioned") ?? "—"]];
+  const html = `<p><strong><u>${escapeHtml(draft.routing)}</u></strong></p><p><strong><u>${escapeHtml(draft.subject)}</u></strong></p><table><tbody>${table.map((row, index) => `<tr>${row.map((value) => `<${index ? "td" : "th"}>${cell(value)}</${index ? "td" : "th"}>`).join("")}</tr>`).join("")}</tbody></table>${paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`).join("")}`;
+  const text = [draft.routing, draft.subject, table.map((row) => row.join(" | ")).join("\n"), ...paragraphs].join("\n\n");
   const terminal = rules.some((rule) => rule.id === "du-gpf-12-1" || rule.id === "du-gpf-13-1") ? "Vice-Chancellor" : item.terminal;
   const findings: Finding[] = [...draft.findings, ...draft.missing_information.map((detail) => ({ kind: "warning" as const, title: "Particulars / policy to confirm", detail }))];
-  const definition: CaseDefinition = { ...item, caseTemplateId: NOTE_TEMPLATE_ID, institution: draft.institution ?? item.institution, subject: draft.subject, category: draft.category, applicant: fact("applicant") ?? "", section: "Finance & Accounts", documents: [item.documents[0], ...rules], facts: draft.facts.map((entry) => ({ label: factLabels[entry.key], value: entry.value })), note: [{ heading: "Proposal particulars", text: draft.facts.map((entry) => `${factLabels[entry.key]}: ${entry.value}`).join("\n") }, ...paragraphs.map((paragraph, index) => ({ heading: `Paragraph ${index + 1}`, text: paragraph }))], explanation: paragraphs, recommendation: draft.recommendation, findings, terminal, calculation: undefined };
+  const definition: CaseDefinition = { ...item, caseTemplateId: NOTE_TEMPLATE_ID, institution: draft.institution ?? item.institution, subject: draft.subject, category: draft.category, applicant: fact("applicant") ?? "", section: "Finance & Accounts", documents: [item.documents[0], ...rules], facts: draft.facts.map((entry) => ({ label: factLabels[entry.key], value: entry.value })), note: [{ heading: "Proposal particulars", text: draft.facts.map((entry) => `${factLabels[entry.key]}: ${entry.value}`).join("\n") }, ...paragraphs.map((paragraph, index) => ({ heading: `Paragraph ${index + 1}`, text: paragraph }))], explanation: paragraphs, recommendation: cleanNoteParagraphs([draft.recommendation]).join("\n\n"), findings, terminal, calculation: undefined };
   return { item: definition, state: { ...state, html, text, status: "Generated note", draftKind: "note", terminal, level: 0, checks: [], savedAt: now, proposalDraft: { html: state.html, text: state.text, savedAt: state.savedAt }, appliedRuleIds: rules.map((rule) => rule.id), generation: { engine: draft.engine, styleSources: draft.style_sources, missingInformation: draft.missing_information }, versions: [...state.versions, { id: state.versions.length + 1, label: "Proposal text used for noting", html: state.html, text: state.text, author: "Dealing Assistant", date: now }, { id: state.versions.length + 2, label: "Note from uploaded proposal", html, text, author: draft.engine === "ai" ? "AI drafting" : "Local drafting", date: now }] } };
 }
 

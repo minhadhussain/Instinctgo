@@ -11,7 +11,8 @@ import { findRuleMatches, rulePhrases } from "../src/lib/playground/rule-matches
 import { canApproveNote, performFinanceAction } from "../src/lib/playground/finance-actions";
 import { applyExtractedText, finishExtraction, MAX_TEXT_CHARACTERS, ocrParagraphText, pdfTextLines } from "../src/lib/playground/document-text";
 import { convertGpfProposal, gpfProposalText, gpfRules, parseGpfProposal, renderGpfNote } from "../src/lib/playground/gpf-case";
-import { applyDraftNote, buildLocalNote, classifyProposal, factIsGrounded, moneyValue, noteInput, type NoteInput } from "../src/lib/playground/note-draft";
+import { allRuleReferences, applyDraftNote, buildLocalNote, classifyProposal, factIsGrounded, moneyValue, noteInput, noteReferences, type NoteInput } from "../src/lib/playground/note-draft";
+import { cleanNoteParagraphs } from "../src/lib/playground/note-content";
 import { requestNoteDraft } from "../src/lib/playground/note-service";
 
 const procurement = sampleCases[0];
@@ -112,7 +113,7 @@ test("read-only assistant cannot mutate state and returns structured historical 
   const state = states[procurement.id];
   const before = JSON.stringify(states);
   const request = { mode: "research" as const, current: procurement, state, cases, states };
-  assert.match(demoAI.respond({ ...request, question: "Approve and submit this case" }).text, /does not edit/);
+  assert.match(demoAI.respond({ ...request, question: "Approve and submit this case" }).text, /workflow actions/);
   const refunds = demoAI.respond({ ...request, question: "Find fee refunds in session 2025–26" });
   assert.deepEqual(refunds.caseIds, ["DEMO-HIS-103"]);
   const returned = demoAI.respond({ ...request, question: "Which cases were returned by the Section Officer?" });
@@ -192,7 +193,7 @@ test("uploaded chatbot context quotes the selected source without claiming extra
   assert.deepEqual(answer.citations, [rule.id]);
   assert.ok(answer.text.includes(rule.content[1]));
   assert.match(demoAI.respond({ ...request, contextId: undefined }).text, /Convert to note/);
-  assert.match(demoAI.respond({ ...request, question: "Sign this proposal" }).text, /cannot approve or sign/);
+  assert.match(demoAI.respond({ ...request, question: "Sign this proposal" }).text, /workflow actions/);
   assert.equal(state.movements.length, 0);
 });
 
@@ -295,7 +296,7 @@ test("the supplied GPF proposal becomes the expected formatted note only on expl
   assert.equal(result.state.html, expected.html);
   assert.equal(result.state.text, expected.text);
   assert.match(result.state.html, /<table>/);
-  assert.match(result.state.text, /Put up for your kind perusal/);
+  assert.doesNotMatch(result.state.text, /Put up for your kind perusal|If the particulars are verified|No numerical interest rate is assumed/);
   assert.match(result.state.text, /50% ceiling.*Rs\. 3,00,000/);
   assert.match(result.state.text, /36 equal monthly instalments of Rs\. 5,000/);
   assert.equal(result.state.terminal, "Vice-Chancellor");
@@ -372,27 +373,34 @@ test("note formation preserves originals, uses edited text and is independent of
   const input = noteInput(extracted.item, edited);
   const draft = buildLocalNote(input);
   assert.equal(buildLocalNote({ ...input, title: "some-other-filename" }).subject, draft.subject);
-  draft.paragraphs = draft.paragraphs.filter((paragraph) => paragraph !== draft.recommendation);
+  draft.recommendation = "If the particulars are verified, the file may be placed before the competent authority.";
+  draft.paragraphs.push(draft.recommendation, "Put up for your kind perusal and necessary order please.");
   const result = applyDraftNote(extracted.item, edited, draft, now);
   assert.equal(result.state.draftKind, "note");
   assert.match(result.state.text, /Anu Bora/);
   assert.equal(result.state.text.includes("Riya Nath"), false);
   assert.match(result.state.html, /<table>/);
-  assert.match(result.state.text, /Put up for your kind perusal/);
+  assert.doesNotMatch(result.state.text, /Put up for your kind perusal|If the particulars are verified/);
   assert.equal(result.state.proposalDraft?.text, edited.text);
   assert.equal(result.item.documents[0].original, extracted.item.documents[0].original);
   assert.equal(extracted.state.draftKind, "proposal");
   assert.equal(result.state.generation?.engine, "local");
-  assert.ok(result.state.text.includes(draft.recommendation));
+  assert.equal(result.item.recommendation, "");
+  assert.ok(noteReferences(result.item, result.state).some((doc) => doc.id === "du-gpf-12-1"));
+  assert.ok(noteReferences(result.item, result.state).some((doc) => doc.id === "du-consultancy-2-1-1"));
+  assert.deepEqual(result.state.appliedRuleIds, []);
+  assert.equal(noteReferences(extracted.item, edited).some((doc) => doc.id === "du-gpf-12-1"), false);
+  assert.equal(new Set(allRuleReferences.map((doc) => doc.id)).size, allRuleReferences.length);
 });
 
-test("incomplete and unfamiliar applications still produce a clarification note", () => {
+test("incomplete applications produce a note without a missing-information paragraph", () => {
   const draft = buildLocalNote(draftInput("Please permit me to submit my dissertation after the deadline because my project work was delayed."));
   assert.equal(draft.category, "general");
   assert.ok(draft.paragraphs.length >= 3);
   assert.ok(draft.missing_information.some((value) => value.includes("Applicant")));
   assert.equal(draft.facts.some((fact) => fact.key === "application_date"), false);
   assert.deepEqual(draft.applied_rules, []);
+  assert.doesNotMatch(draft.paragraphs.join(" "), /require clarification|not clearly stated|not been supplied/);
 });
 
 test("new GPF medical applications use advance rules without education-only sample facts", () => {
@@ -464,8 +472,8 @@ test("new consultancy proposals use the added PDF and its nested earnings split"
   assert.ok(draft.applied_rules.some((rule) => rule.id === "du-consultancy-3-ii"));
   assert.equal(draft.applied_rules.some((rule) => rule.id.startsWith("du-gpf")), false);
   assert.match(draft.paragraphs.join(" "), /60,000.*40,000.*36,000.*24,000/);
-  assert.match(draft.recommendation, /Advisory Committee/);
-  assert.doesNotMatch(draft.recommendation, /Vice-Chancellor/);
+  assert.equal(draft.recommendation, "");
+  assert.match(draft.paragraphs.join(" "), /Advisory Committee/);
   assert.match(draft.missing_information.join(" "), /transaction-date tax/);
   const bytes = new TextEncoder().encode(consultancyProposal);
   const item = createImportedCase({ name: "consultancy.txt", type: "text/plain", size: bytes.length }, bytes.buffer, "blob:consultancy", "FIN-CONSULT", now);
@@ -485,7 +493,7 @@ Consultancy leave already taken this calendar year: 16
 I request permission for the consultancy visit to the client.`));
   assert.ok(draft.findings.some((finding) => finding.title.includes("single-spell")));
   assert.ok(draft.findings.some((finding) => finding.title.includes("annual limit")));
-  assert.match(draft.paragraphs.join(" "), /Points requiring resolution/);
+  assert.doesNotMatch(draft.paragraphs.join(" "), /Points requiring resolution/);
   for (const text of [newRefund, "Subject: Casual leave\nI request five days of casual leave for personal reasons.", "Subject: Hiring an external consultant\nPlease approve procurement of consultancy services for the office."]) {
     assert.deepEqual(buildLocalNote(draftInput(text)).applied_rules, []);
   }
@@ -508,6 +516,20 @@ I propose 30 equal monthly instalments.`);
   assert.equal(draft.facts.find((fact) => fact.key === "fund_balance")?.value, "INR 300000");
   assert.equal(draft.facts.find((fact) => fact.key === "reference")?.value, "EMP-059");
   assert.ok(draft.facts.every((fact) => factIsGrounded(fact, input)));
+});
+
+test("generated note cleanup removes boilerplate while retaining facts and calculations", () => {
+  const facts = "The applicant requests INR 3200. The ledger shows two payments.";
+  const removed = [
+    "The following particulars / records require clarification before a final recommendation: Application date is not clearly stated. The requested amount is not clearly stated.",
+    "If the particulars are verified and the request is admissible under the applicable provisions, the file may be placed before the competent authority for consideration and necessary orders. The amount, accounting treatment and any payment / implementation particulars should be confirmed before further action.",
+    "Put up for your kind perusal and necessary order please.",
+    "This note is not an official document.",
+  ];
+  assert.deepEqual(cleanNoteParagraphs([facts, ...removed]), [facts]);
+  assert.deepEqual(cleanNoteParagraphs([`${facts} No numerical interest rate is assumed in this note.`]), [facts]);
+  assert.deepEqual(cleanNoteParagraphs([removed.join("\n\n")]), []);
+  assert.ok(allRuleReferences.every((doc) => doc.file?.url && doc.file.page));
 });
 
 test("the drafting service falls back locally without a configured model and honours cancellation", async () => {

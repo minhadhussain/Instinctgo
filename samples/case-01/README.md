@@ -5,9 +5,9 @@
 1. Upload `proposals/gpf-advance-proposal.pdf`, or choose **Use sample** in the playground.
 2. Choose **Convert to text**. This stage shows the proposal text and AI Assistant only.
 3. Review the text, then choose **Convert to note**.
-4. The note uses the format in the supplied note sample. The sidebar now shows the seven applied GPF rule entries and their application to this case.
+4. The note uses the format in the supplied note sample. The sidebar shows the GPF and consultancy reference library, with provisions used in the note listed first.
 
-The reference output is `notes/gpf-advance-note.pdf`. Readable `.txt` versions are included beside both generated PDFs. The original PDF, reviewed proposal text and editable note are kept separately in the browser session.
+The reference output is `notes/gpf-advance-note.pdf`. Readable `.txt` versions are included beside both generated PDFs. The original PDF, reviewed proposal text and editable note are kept separately in the browser session. Generated notes omit the generic clarification paragraph, conditional footer and standard closing, and exports carry no disclaimer banner.
 
 ## Supplied sources
 
