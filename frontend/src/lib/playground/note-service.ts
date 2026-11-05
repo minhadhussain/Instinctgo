@@ -1,5 +1,7 @@
 import { apiUrl } from "../api";
 import { buildLocalNote, factIsGrounded, type DraftNote, type NoteInput } from "./note-draft";
+import { buildSwsNote } from "./sws-draft";
+import { countWords, swsHeadings } from "./sws-settings";
 
 async function request(path: string, init: RequestInit, signal: AbortSignal, timeout: number) {
   const controller = new AbortController();
@@ -16,7 +18,7 @@ async function request(path: string, init: RequestInit, signal: AbortSignal, tim
 
 export async function requestNoteDraft(input: NoteInput, signal: AbortSignal): Promise<DraftNote> {
   signal.throwIfAborted();
-  const local = buildLocalNote(input);
+  const local = input.drafting_style === "sws-procurement" ? buildSwsNote(input) : buildLocalNote(input);
   try {
     const capabilities = await request("noting/capabilities", {}, signal, 2500);
     signal.throwIfAborted();
@@ -31,6 +33,11 @@ export async function requestNoteDraft(input: NoteInput, signal: AbortSignal): P
       || !Array.isArray(draft.facts) || !draft.facts.every((fact) => factIsGrounded(fact, input))
       || !Array.isArray(draft.applied_rules) || !Array.isArray(draft.missing_information)
       || !Array.isArray(draft.findings) || !Array.isArray(draft.style_sources)) throw new Error("Invalid note response");
+    if (input.drafting_style === "sws-procurement") {
+      if (draft.category !== "procurement" || draft.applied_rules.length || draft.sections?.length !== 4
+        || !draft.sections.every((section, index) => section.heading === swsHeadings[index] && typeof section.text === "string")
+        || countWords(draft.sections.map((section) => section.text).join(" ")) > (input.word_limit ?? 300)) throw new Error("Invalid concise SWS draft");
+    }
     return draft;
   } catch (error) {
     if (signal.aborted) throw error;

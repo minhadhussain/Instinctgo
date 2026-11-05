@@ -21,6 +21,10 @@ function saveBlob(blob: Blob, name: string) {
 }
 
 export async function exportNote(format: "docx" | "pdf", item: CaseDefinition, state: CaseState) {
+  if (item.workspace === "sws-procurement") {
+    const { exportSwsNote } = await import("./sws-document");
+    return exportSwsNote(format, item, state);
+  }
   const disclaimer = `${item.imported ? "PLAYGROUND DRAFT" : "SYNTHETIC PLAYGROUND"} · ${state.status.toUpperCase()} · NOT AN OFFICIAL DOCUMENT`;
   const parsed = new DOMParser().parseFromString(state.html, "text/html");
   const plain = (element: Element) => { const copy = element.cloneNode(true) as Element; copy.querySelectorAll("br").forEach((br) => br.replaceWith("\n")); copy.querySelectorAll("p").forEach((p) => p.append("\n")); return copy.textContent?.trim() ?? ""; };

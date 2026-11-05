@@ -48,6 +48,8 @@ class NoteDraftRequest(StrictModel):
     proposal_text: str = Field(min_length=20, max_length=200000)
     proposal_id: str = Field(min_length=1, max_length=160)
     supporting_documents: list[SupportingDocument] = Field(default_factory=list, max_length=20)
+    drafting_style: Literal["standard", "sws-procurement"] = "standard"
+    word_limit: int = Field(default=300, ge=100, le=1000)
 
     @model_validator(mode="after")
     def validate_context(self):
@@ -78,6 +80,11 @@ class NoteFinding(StrictModel):
     detail: str = Field(min_length=1, max_length=1200)
 
 
+class NoteSection(StrictModel):
+    heading: str = Field(min_length=1, max_length=100)
+    text: str = Field(min_length=1, max_length=4000)
+
+
 class NoteContent(StrictModel):
     subject: str = Field(min_length=1, max_length=240)
     category: NoteCategory
@@ -93,6 +100,7 @@ class NoteContent(StrictModel):
         max_length=20
     )
     findings: list[NoteFinding] = Field(max_length=20)
+    sections: list[NoteSection] = Field(default_factory=list, max_length=4)
 
 
 class StyleSource(StrictModel):

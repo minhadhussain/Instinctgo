@@ -14,7 +14,8 @@
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
     "test:playground": "tsx --test tests/playground.test.ts",
-    "test:deployment": "tsx --test tests/deployment.test.ts"
+    "test:deployment": "tsx --test tests/deployment.test.ts",
+    "test:sws": "tsx --test tests/sws.test.ts"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",

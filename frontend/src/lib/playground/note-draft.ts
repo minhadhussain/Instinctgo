@@ -5,13 +5,14 @@ import type { CaseDefinition, CaseState, Finding, ReferenceDocument } from "./ty
 export type NoteCategory = "fee-refund" | "admission-refund" | "hostel-refund" | "service-refund" | "gpf-advance" | "gpf-withdrawal" | "gpf-final" | "consultancy" | "leave" | "procurement" | "general";
 export type FactKey = "applicant" | "department" | "reference" | "application_date" | "amount_requested" | "amount_mentioned" | "fund_balance" | "instalments" | "monthly_pay" | "consultancy_earnings" | "consultancy_days" | "yearly_consultancy_days" | "annual_consultancy_fees" | "annual_salary";
 export interface ProposalFact { key: FactKey; value: string; evidence: string; source_id: string }
-export interface NoteInput { title: string; proposal_text: string; proposal_id: string; supporting_documents: { id: string; title: string; text: string }[] }
+export interface NoteInput { title: string; proposal_text: string; proposal_id: string; supporting_documents: { id: string; title: string; text: string }[]; drafting_style?: "standard" | "sws-procurement"; word_limit?: number }
 export interface DraftNote {
   subject: string; category: NoteCategory; institution: string | null; routing: string;
   facts: ProposalFact[]; paragraphs: string[]; recommendation: string;
   applied_rules: { id: string; reason: string }[]; missing_information: string[];
   findings: { kind: "warning" | "error"; title: string; detail: string }[];
   engine: "local" | "ai"; style_sources: { path: string; pages: number[]; title: string }[];
+  sections?: { heading: string; text: string }[];
 }
 
 export const NOTE_INPUT_LIMIT = 200000;
@@ -233,16 +234,18 @@ export function applyDraftNote(item: CaseDefinition, state: CaseState, draft: Dr
   const paragraphs = [...draft.paragraphs.filter((paragraph) => paragraph !== draft.recommendation), draft.recommendation];
   const cell = (text: string) => `<p>${escapeHtml(text).replace(/\n/g, "<br>")}</p>`;
   const table = [["Sl. No.", "Applicant / Reference", "Department / Request", "Amount stated"], ["1", [fact("applicant") ?? "Applicant not clearly stated", fact("reference")].filter(Boolean).join("\n"), fact("department") ?? draft.subject, fact("amount_requested") ?? fact("consultancy_earnings") ?? fact("amount_mentioned") ?? "Not clearly stated"]];
-  const html = `<p><strong><u>${escapeHtml(draft.routing)}</u></strong></p><p><strong><u>${escapeHtml(draft.subject)}</u></strong></p><table><tbody>${table.map((row, index) => `<tr>${row.map((value) => `<${index ? "td" : "th"}>${cell(value)}</${index ? "td" : "th"}>`).join("")}</tr>`).join("")}</tbody></table>${paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`).join("")}<p>${escapeHtml(library.closing)}</p>`;
-  const text = [draft.routing, draft.subject, table.map((row) => row.join(" | ")).join("\n"), ...paragraphs, library.closing].join("\n\n");
+  const sws = item.workspace === "sws-procurement" && draft.sections?.length === 4;
+  const html = sws ? `<div data-note-number="1">Note #1</div>${draft.sections!.map((section, index) => `<h3>${escapeHtml(section.heading)}</h3><p data-para-number="${index + 1}">${escapeHtml(section.text)}</p>`).join("")}` : `<p><strong><u>${escapeHtml(draft.routing)}</u></strong></p><p><strong><u>${escapeHtml(draft.subject)}</u></strong></p><table><tbody>${table.map((row, index) => `<tr>${row.map((value) => `<${index ? "td" : "th"}>${cell(value)}</${index ? "td" : "th"}>`).join("")}</tr>`).join("")}</tbody></table>${paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`).join("")}<p>${escapeHtml(library.closing)}</p>`;
+  const text = sws ? ["Note #1", ...draft.sections!.flatMap((section, index) => [section.heading, `${index + 1}. ${section.text}`])].join("\n\n") : [draft.routing, draft.subject, table.map((row) => row.join(" | ")).join("\n"), ...paragraphs, library.closing].join("\n\n");
   const terminal = rules.some((rule) => rule.id === "du-gpf-12-1" || rule.id === "du-gpf-13-1") ? "Vice-Chancellor" : item.terminal;
   const findings: Finding[] = [...draft.findings, ...draft.missing_information.map((detail) => ({ kind: "warning" as const, title: "Particulars / policy to confirm", detail }))];
   const definition: CaseDefinition = { ...item, caseTemplateId: NOTE_TEMPLATE_ID, institution: draft.institution ?? item.institution, subject: draft.subject, category: draft.category, applicant: fact("applicant") ?? "", section: "Finance & Accounts", documents: [item.documents[0], ...rules], facts: draft.facts.map((entry) => ({ label: factLabels[entry.key], value: entry.value })), note: [{ heading: "Proposal particulars", text: draft.facts.map((entry) => `${factLabels[entry.key]}: ${entry.value}`).join("\n") }, ...paragraphs.map((paragraph, index) => ({ heading: `Paragraph ${index + 1}`, text: paragraph }))], explanation: paragraphs, recommendation: draft.recommendation, findings, terminal, calculation: undefined };
+  if (sws) { definition.section = "Student Welfare Section"; definition.note = draft.sections!; }
   return { item: definition, state: { ...state, html, text, status: "Generated note", draftKind: "note", terminal, level: 0, checks: [], savedAt: now, proposalDraft: { html: state.html, text: state.text, savedAt: state.savedAt }, appliedRuleIds: rules.map((rule) => rule.id), generation: { engine: draft.engine, styleSources: draft.style_sources, missingInformation: draft.missing_information }, versions: [...state.versions, { id: state.versions.length + 1, label: "Proposal text used for noting", html: state.html, text: state.text, author: "Dealing Assistant", date: now }, { id: state.versions.length + 2, label: "Note from uploaded proposal", html, text, author: draft.engine === "ai" ? "AI drafting" : "Local drafting", date: now }] } };
 }
 
 export function noteInput(item: CaseDefinition, state: CaseState): NoteInput {
-  return { title: item.subject.slice(0, 240), proposal_text: state.text, proposal_id: item.documents[0].id, supporting_documents: state.extraDocuments.map((doc) => ({ id: doc.id, title: doc.title, text: doc.content.join("\n\n") })) };
+  return { title: item.subject.slice(0, 240), proposal_text: state.text, proposal_id: item.documents[0].id, supporting_documents: state.extraDocuments.map((doc) => ({ id: doc.id, title: doc.title, text: doc.content.join("\n\n") })), drafting_style: item.workspace === "sws-procurement" ? "sws-procurement" : "standard", word_limit: state.notingLayout?.wordLimit ?? 300 };
 }
 
 export function factIsGrounded(fact: ProposalFact, input: NoteInput) {

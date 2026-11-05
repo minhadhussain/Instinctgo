@@ -13,6 +13,7 @@ from app.schemas.noting import (
     NoteDraftRequest,
     NoteDraftResponse,
     NoteFact,
+    NoteSection,
 )
 from app.services import noting
 
@@ -189,3 +190,34 @@ def test_consultancy_rules_and_calculations_use_the_new_source(content):
     content.applied_rules = [AppliedRule(id="du-gpf-12-1", reason="Incorrect cross-domain rule")]
     with pytest.raises(ValueError, match="unsupported rule"):
         noting.validate_note_content(content, request, library)
+
+
+def test_sws_drafting_requires_concise_sections_and_no_unsupplied_rules(proposal, content):
+    proposal.drafting_style = "sws-procurement"
+    content.category = "procurement"
+    content.sections = [
+        NoteSection(
+            heading="Issue / Proposal Summary", text="Examine the stated procurement need."
+        ),
+        NoteSection(
+            heading="Financial Implication & Budget Head",
+            text="Confirm the estimate and budget head from the records.",
+        ),
+        NoteSection(
+            heading="Rule Justification (GFR / Assam Procurement)",
+            text="GFR / University and Assam procurement rulebooks are pending addition.",
+        ),
+        NoteSection(
+            heading="Recommendation / Seeking Approval",
+            text="Put up for consideration after verification of budget and applicable provisions.",
+        ),
+    ]
+    noting.validate_note_content(content, proposal, noting.load_note_library())
+    assert content.recommendation == content.sections[-1].text
+    content.applied_rules = [AppliedRule(id="gfr-149", reason="Unsupplied procurement clause")]
+    with pytest.raises(ValueError, match="not been supplied"):
+        noting.validate_note_content(content, proposal, noting.load_note_library())
+    content.applied_rules = []
+    content.sections[0].text = "Repeated procedure " * 200
+    with pytest.raises(ValueError, match="word target"):
+        noting.validate_note_content(content, proposal, noting.load_note_library())

@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, ArrowUp, BookOpen, ChevronDown, MessageSquareText } from "lucide-react";
 import { demoAI, respondToIntake, respondToRules } from "@/lib/playground/assistant";
-import type { AssistantResponse, CaseDefinition, CaseState, ReferenceDocument } from "@/lib/playground/types";
+import type { AssistantResponse, CaseDefinition, CaseState, ReferenceDocument, WorkspaceKind } from "@/lib/playground/types";
 
 interface Message extends AssistantResponse { question: string; id: number }
 interface CaseProps { libraryOnly?: false; item: CaseDefinition; state: CaseState; cases: CaseDefinition[]; states: Record<string, CaseState>; documents?: ReferenceDocument[]; expanded?: boolean; editable: boolean; onInsert: (text: string, citations?: string[]) => void; onPreview: (document: ReferenceDocument) => void; onOpen: (id: string) => void }
-interface LibraryProps { libraryOnly: true; intake?: boolean; documents: ReferenceDocument[]; expanded?: boolean; onPreview: (document: ReferenceDocument) => void }
+interface LibraryProps { libraryOnly: true; intake?: boolean; workspace?: WorkspaceKind; documents: ReferenceDocument[]; expanded?: boolean; onPreview: (document: ReferenceDocument) => void }
 type Props = CaseProps | LibraryProps;
 
 export function AssistantPanel(props: Props) {
@@ -27,7 +27,7 @@ export function AssistantPanel(props: Props) {
   function ask(value: string) {
     if (!value.trim()) return;
     const mode = /^(?:please\s+)?(?:draft|write|improve|rewrite|suggest wording)\b/i.test(value.trim()) ? "draft" : "research";
-    const response = intake ? respondToIntake(value) : props.libraryOnly ? respondToRules(value, documents, contextId) : demoAI.respond({ question: value, mode, current: props.item, state: props.state, cases: props.cases, states: props.states, references: documents, contextId });
+    const response = intake && props.libraryOnly ? respondToIntake(value, props.workspace) : props.libraryOnly ? respondToRules(value, documents, contextId) : demoAI.respond({ question: value, mode, current: props.item, state: props.state, cases: props.cases, states: props.states, references: documents, contextId });
     setMessages((previous) => [...previous, { ...response, question: value, id: previous.length + 1 }]);
     setQuestion("");
   }

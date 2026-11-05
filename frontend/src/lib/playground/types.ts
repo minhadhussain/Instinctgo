@@ -3,6 +3,13 @@ export type Branch = "Administrative" | "Examination" | "PNC";
 export type SourceStatus = "Current" | "Historical" | "Superseded" | "Under review" | "Unverified";
 export type CaseStatus = "Received" | "AI-generated draft" | "Extracted draft" | "Generated note" | "Human-edited draft" | "In review" | "Returned" | "Demo approved" | "Demo rejected" | "Closed";
 export type View = "Overview" | "Noting Studio" | "AI Assistant" | "Case Explorer" | "Reference Library" | "Workflow" | "Administration";
+export type WorkspaceKind = "general" | "sws-procurement";
+export interface NotingLayout {
+  paper: "legal" | "a3";
+  margins: { top: number; right: number; bottom: number; left: number };
+  paperColor: "white" | "green";
+  wordLimit: number;
+}
 
 export interface ReferenceDocument {
   id: string;
@@ -50,6 +57,7 @@ export interface CaseDefinition {
   imported?: boolean;
   institution?: string;
   caseTemplateId?: string;
+  workspace?: WorkspaceKind;
 }
 
 export interface NoteVersion { id: number; label: string; html: string; text: string; date: string; author: Role | "Simulated AI" | "Browser extraction" | "Case template" | "Local drafting" | "AI drafting" }
@@ -75,6 +83,7 @@ export interface CaseState {
   proposalDraft?: { html: string; text: string; savedAt: string };
   appliedRuleIds?: string[];
   generation?: { engine: "local" | "ai"; styleSources: { path: string; pages: number[]; title: string }[]; missingInformation: string[] };
+  notingLayout?: NotingLayout;
 }
 
 export type WorkflowAction = "submit" | "forward" | "return" | "approve" | "reject" | "close";

@@ -1,4 +1,4 @@
-import type { AIAdapter, AssistantResponse, CaseDefinition, CaseState, ReferenceDocument } from "./types";
+import type { AIAdapter, AssistantResponse, CaseDefinition, CaseState, ReferenceDocument, WorkspaceKind } from "./types";
 import { isRuleDocument } from "./rule-matches";
 import { GPF_CASE_ID } from "./gpf-case";
 import { buildLocalNote, factLabels, NOTE_TEMPLATE_ID, noteInput } from "./note-draft";
@@ -26,8 +26,8 @@ export function respondToRules(question: string, references: ReferenceDocument[]
   return { text: matches.map((doc) => `${doc.title}\n${doc.locator}\n\n${doc.content.slice(1).join("\n\n")}`).join("\n\n—\n\n"), citations: matches.map((doc) => doc.id) };
 }
 
-export function respondToIntake(question: string): AssistantResponse {
-  if (/case|sample|topic|gpf/i.test(question)) return { text: "You can upload your own proposal. Its note will follow the structure of the supplied noting examples and use relevant supplied rules. The sample button provides a GPF application to try the same workflow.", citations: [] };
+export function respondToIntake(question: string, workspace: WorkspaceKind = "general"): AssistantResponse {
+  if (/case|sample|topic|gpf|sws|procurement/i.test(question)) return { text: workspace === "sws-procurement" ? "The SWS sample is a fictional procurement request for reading-room chairs. Review its text, then prepare a concise four-section note. GFR / University and Assam procurement rulebooks are pending addition in their separate reference slots." : "You can upload your own proposal. Its note will follow the structure of the supplied noting examples and use relevant supplied rules. The sample button provides a GPF application to try the same workflow.", citations: [] };
   if (/file|format|pdf|scan/i.test(question)) return { text: "Upload PDF, DOCX, TXT/MD, PNG or JPEG (up to 20 MB). Convert to text first. Scans use English OCR, so review the extracted text before preparing the note.", citations: [] };
   return { text: "1. Upload a proposal or choose Use sample.\n2. Click Convert to text and review the extracted proposal.\n3. Click Convert to note. The prepared note and its applied rules will then appear together.\n\nThe original proposal and reviewed text remain available separately.", citations: [] };
 }

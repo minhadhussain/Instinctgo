@@ -1,6 +1,7 @@
 import type { CaseDefinition, CaseState, CaseStatus, Finding, Role, WorkflowAction } from "./types";
 import { getPath } from "./hierarchy";
 import { renderNote } from "./renderer";
+import { defaultNotingLayout } from "./sws-settings";
 
 export const verificationChecks = ["Proposal and note compared", "Sources and facts verified", "Conditions and next action reviewed"];
 export const stages = ["Received", "Understanding", "Retrieval", "Examination", "Noting", "Validation", "Review"];
@@ -12,7 +13,7 @@ export function initialCaseState(item: CaseDefinition, ready = false): CaseState
     stage: generated ? 6 : 0, status: item.historical?.status ?? (generated ? "AI-generated draft" : "Received"), level: 0, ...note,
     versions: generated ? [{ id: 1, label: item.historical ? "Archived sample note" : "AI-generated draft", ...note, date: `${item.date}T10:00:00`, author: "Simulated AI" }] : [],
     movements: item.historical ? [{ id: 1, officer: item.historical.status === "Returned" ? "Section Officer" : item.terminal, date: `${item.date}T15:30:00`, action: "Archived disposition", remarks: item.historical.disposition, previous: "In review", next: item.historical.status, from: item.historical.status === "Returned" ? "Section Officer" : item.terminal, to: "Dealing Assistant", version: 1 }] : [],
-    comments: [], checks: [], extraDocuments: [], correction: "", disposition: item.historical?.disposition ?? "", terminal: item.terminal, savedAt: "", draftKind: item.imported ? "proposal" : "note",
+    comments: [], checks: [], extraDocuments: [], correction: "", disposition: item.historical?.disposition ?? "", terminal: item.terminal, savedAt: "", draftKind: item.imported ? "proposal" : "note", notingLayout: item.workspace === "sws-procurement" ? defaultNotingLayout() : undefined,
   };
 }
 
