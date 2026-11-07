@@ -69,7 +69,7 @@ export function DocumentIntake({ cases, states, jobs, sample, onPreview, onUploa
 
   return <div className="pg-intake-layout">
     <main className="pg-intake-main">
-      <div className="pg-intake-heading"><h2 tabIndex={-1}>Add a proposal</h2><p>Extract the text, review it, then convert it into a note.</p></div>
+      <div className="pg-intake-heading"><h2 tabIndex={-1}>Add a proposal</h2><p>Upload any proposal. Its text determines the proposal type and note format automatically.</p></div>
       <div className={`pg-drop-card ${dragging ? "pg-drag-active" : ""} ${uploadedId ? "pg-upload-ready" : ""}`} onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={(event) => { if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) setDragging(false); }} onDrop={(event) => { event.preventDefault(); setDragging(false); void receive(Array.from(event.dataTransfer.files)); }}>
         {file && !busy && <button className="pg-icon-button pg-upload-reset" aria-label="Clear file selection" title="Clear selection" onClick={clearSelection}><X size={16} /></button>}
         <span className="pg-upload-icon">{busy ? <LoaderCircle className="pg-spinner" size={30} /> : uploadedId ? <Check size={30} /> : error ? <CircleAlert size={30} /> : <UploadCloud size={30} strokeWidth={1.6} />}</span>

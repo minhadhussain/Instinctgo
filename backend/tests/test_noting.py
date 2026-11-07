@@ -166,7 +166,65 @@ async def test_api_accepts_new_proposal_and_returns_note(monkeypatch, proposal, 
         result = await client.post("/api/v1/noting/draft", json=proposal.model_dump())
         assert result.status_code == 200
         assert result.json()["subject"] == content.subject
-        assert "signature" not in result.json()
+    assert "signature" not in result.json()
+
+
+async def test_procurement_uses_shared_endpoint_and_automatically_selected_profile(monkeypatch):
+    request = NoteDraftRequest(
+        title="scan-014",
+        proposal_id="new-proposal",
+        proposal_text=(
+            "Dibrugarh University\nSubject: Request for approval\n"
+            "Estimated expenditure: INR 75000\n"
+            "We request purchase of five computers for the library."
+        ),
+    )
+    content = NoteContent(
+        subject="Purchase of library computers",
+        category="procurement",
+        institution="Dibrugarh University",
+        routing="Finance & Accounts / Purchase Section / Competent Authority",
+        facts=[
+            NoteFact(
+                key="amount_requested",
+                value="INR 75000",
+                evidence="Estimated expenditure: INR 75000",
+                source_id="new-proposal",
+            )
+        ],
+        paragraphs=[
+            "The proposal seeks purchase of five computers for the library.",
+            "The estimated expenditure is INR 75000. Examine the specifications, "
+            "quotations, budget availability and applicable procurement provisions.",
+        ],
+        recommendation="",
+        applied_rules=[],
+        missing_information=["Applicable procurement policy and financial delegation"],
+        findings=[],
+    )
+
+    class Model:
+        def __init__(self, **kwargs):
+            pass
+
+        def with_structured_output(self, schema):
+            assert schema is NoteContent
+            return self
+
+        async def ainvoke(self, messages):
+            assert "five computers" in messages[1][1]
+            return content
+
+    monkeypatch.setattr(noting, "ChatOpenAI", Model)
+    monkeypatch.setattr(noting, "get_settings", lambda: Settings(openai_api_key=SecretStr("test")))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/api/v1/noting/draft", json=request.model_dump())
+    assert response.status_code == 200
+    result = response.json()
+    assert result["category"] == "procurement"
+    assert "Procurement" in result["style_sources"][0]["title"]
+    assert result["applied_rules"] == []
+    assert result["facts"][0]["value"] == "INR 75000"
 
 
 def test_consultancy_rules_and_calculations_use_the_new_source(content):
@@ -207,3 +265,82 @@ def test_consultancy_rules_and_calculations_use_the_new_source(content):
     content.applied_rules = [AppliedRule(id="du-gpf-12-1", reason="Incorrect cross-domain rule")]
     with pytest.raises(ValueError, match="unsupported rule"):
         noting.validate_note_content(content, request, library)
+
+
+@pytest.mark.parametrize(
+    ("text", "institution", "assam", "works"),
+    [
+        (
+            "Dibrugarh University\nPurchase of computers with quotations",
+            "Dibrugarh University",
+            True,
+            False,
+        ),
+        ("Government of India\nConstruction of a boundary wall", None, False, True),
+        ("Dibrugarh University\nRenovation of the library", "Dibrugarh University", True, False),
+        (
+            "Delhi University\nPurchase of computers from a vendor in Assam",
+            "Delhi University",
+            False,
+            False,
+        ),
+        ("Purchase of computers\nJurisdiction: Assam", None, True, False),
+        ("Government of India\nPurchase of office chairs", None, False, False),
+    ],
+)
+def test_procurement_rulebook_scope(text, institution, assam, works):
+    books = noting.load_note_library()["rulebooks"]
+    assert noting.rulebook_matches(books["assam-procurement"], text, institution) is assam
+    assert noting.rulebook_matches(books["goi-works"], text, institution) is works
+
+
+def test_ai_procurement_can_quote_only_eligible_cited_policy_amounts(content):
+    request = NoteDraftRequest(
+        title="Purchase request",
+        proposal_id="purchase",
+        proposal_text=(
+            "Dibrugarh University\nSubject: Purchase of computers by request for quotations\n"
+            "Estimated cost: INR 75000"
+        ),
+    )
+    content.category = "procurement"
+    content.institution = "Dibrugarh University"
+    content.facts = []
+    content.applied_rules = [
+        AppliedRule(id="assam-proc-24-f", reason="Examine the proposed RFQ method.")
+    ]
+    content.paragraphs = [
+        "The estimated cost is INR 75000. Assam Rule 24(F) specifies less than INR 100000 "
+        "per occasion and a financial-year ceiling of INR 500000 in the supplied edition."
+    ]
+    content.recommendation = ""
+    library = noting.load_note_library()
+    noting.validate_note_content(content, request, library)
+    assert any("commencement/amendment" in item for item in content.missing_information)
+
+    uncited = content.model_copy(deep=True)
+    uncited.applied_rules = []
+    with pytest.raises(ValueError, match="monetary"):
+        noting.validate_note_content(uncited, request, library)
+
+    unrelated = content.model_copy(deep=True)
+    unrelated.applied_rules = [AppliedRule(id="goi-works-3-5-1", reason="Wrong source for goods.")]
+    with pytest.raises(ValueError, match="unsupported rule"):
+        noting.validate_note_content(unrelated, request, library)
+
+    invented = content.model_copy(deep=True)
+    invented.paragraphs = ["The RFQ policy permits INR 200000."]
+    with pytest.raises(ValueError, match="monetary"):
+        noting.validate_note_content(invented, request, library)
+
+    engagement = NoteDraftRequest(
+        title="Consultant engagement",
+        proposal_id="engagement",
+        proposal_text="Dibrugarh University\nEngagement of an external consultant for procurement.",
+    )
+    wrong_method = content.model_copy(deep=True)
+    wrong_method.applied_rules = [
+        AppliedRule(id="assam-proc-24-i-2", reason="Mistook engagement for GeM.")
+    ]
+    with pytest.raises(ValueError, match="unsupported rule"):
+        noting.validate_note_content(wrong_method, engagement, library)

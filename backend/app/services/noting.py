@@ -89,6 +89,26 @@ def clean_note_paragraphs(paragraphs: list[str], library: dict) -> list[str]:
     return cleaned
 
 
+def rulebook_matches(book: dict, text: str, institution: str | None) -> bool:
+    def matches(pattern: str) -> bool:
+        return bool(
+            re.search(pattern, unicodedata.normalize("NFKC", text), re.I | re.M)
+            or re.search(pattern, normal(text), re.I | re.M)
+        )
+
+    if not matches(book["signalPattern"]):
+        return False
+    if book.get("scopePattern"):
+        return matches(book["scopePattern"]) or bool(
+            institution
+            and any(
+                normal(name).lower() == normal(institution).lower()
+                for name in book.get("scopeInstitutions", [])
+            )
+        )
+    return not institution or normal(institution).lower() == normal(book["institution"]).lower()
+
+
 def validate_note_content(note: NoteContent, request: NoteDraftRequest, library: dict) -> None:
     sources = {request.proposal_id: request.proposal_text}
     sources.update({doc.id: doc.text for doc in request.supporting_documents})
@@ -109,9 +129,8 @@ def validate_note_content(note: NoteContent, request: NoteDraftRequest, library:
     gpf = bool(re.search(r"\bg\.?p\.?f\.?\b|general provident fund", request.proposal_text, re.I))
 
     def matches_book(book_id: str) -> bool:
-        book = library["rulebooks"][book_id]
-        return bool(re.search(book["signalPattern"], request.proposal_text, re.I)) and (
-            not note.institution or normal(note.institution).lower() == book["institution"].lower()
+        return rulebook_matches(
+            library["rulebooks"][book_id], request.proposal_text, note.institution
         )
 
     matching_institution = matches_book("gpf")
@@ -126,6 +145,10 @@ def validate_note_content(note: NoteContent, request: NoteDraftRequest, library:
             not rule.get("requiresAny")
             or any(term in request.proposal_text.lower() for term in rule["requiresAny"])
         )
+        and (
+            not rule.get("requiresPattern")
+            or re.search(rule["requiresPattern"], normal(request.proposal_text), re.I)
+        )
     }
     ids = [rule.id for rule in note.applied_rules]
     if len(ids) != len(set(ids)) or any(rule_id not in eligible for rule_id in ids):
@@ -134,6 +157,18 @@ def validate_note_content(note: NoteContent, request: NoteDraftRequest, library:
     allowed = {
         money_value(match.group()) for text in sources.values() for match in MONEY.finditer(text)
     }
+    selected_books = set()
+    for rule in library["rules"]:
+        if rule["id"] not in ids:
+            continue
+        # Reviewed policy thresholds may be quoted only from an eligible, cited rule.
+        for text in (rule["excerpt"], rule.get("application", "")):
+            allowed.update(money_value(match.group()) for match in MONEY.finditer(text))
+        selected_books.add(rule.get("rulebook", "gpf"))
+    for book_id in sorted(selected_books):
+        scope_note = library["rulebooks"][book_id].get("scopeNote")
+        if scope_note and scope_note not in note.missing_information:
+            note.missing_information.append(scope_note)
     facts = {fact.key: fact.value for fact in note.facts}
     principal = money_value(facts.get("amount_requested", ""))
     balance = money_value(facts.get("fund_balance", ""))

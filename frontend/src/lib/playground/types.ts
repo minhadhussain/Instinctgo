@@ -9,6 +9,7 @@ export interface ReferenceDocument {
   title: string;
   type: string;
   source: string;
+  issuer?: string;
   date: string;
   effectiveDate: string;
   version: string;
@@ -19,7 +20,7 @@ export interface ReferenceDocument {
   highlight: number;
   original?: { name: string; url: string; mime: string; size: number };
   extraction?: { method: string; pages: number; ocrPages: number };
-  file?: { name: string; url: string; page?: number };
+  file?: { name: string; url: string; page?: number; pageCount?: number };
   application?: string;
 }
 

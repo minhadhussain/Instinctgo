@@ -27,7 +27,7 @@ export function respondToRules(question: string, references: ReferenceDocument[]
 }
 
 export function respondToIntake(question: string): AssistantResponse {
-  if (/case|sample|topic|gpf/i.test(question)) return { text: "You can upload your own proposal. Its note will follow the structure of the supplied noting examples and use relevant supplied rules. The sample button provides a GPF application to try the same workflow.", citations: [] };
+  if (/case|sample|topic|gpf|procure|type|mode/i.test(question)) return { text: "Upload any proposal through the same upload button. Its reviewed text determines the proposal type, note format and relevant supplied rules automatically. The sample button provides a GPF application to try this workflow.", citations: [] };
   if (/file|format|pdf|scan/i.test(question)) return { text: "Upload PDF, DOCX, TXT/MD, PNG or JPEG (up to 20 MB). Convert to text first. Scans use English OCR, so review the extracted text before preparing the note.", citations: [] };
   return { text: "1. Upload a proposal or choose Use sample.\n2. Click Convert to text and review the extracted proposal.\n3. Click Convert to note. The prepared note and its applied rules will then appear together.\n\nThe original proposal and reviewed text remain available separately.", citations: [] };
 }

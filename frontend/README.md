@@ -46,7 +46,8 @@ and supporting text to `/noting/draft` for structured AI drafting. Provider fail
 to local drafting. The workspace labels the engine used. Set `OPENAI_API_KEY` in `backend/.env`
 to enable AI; credentials stay on the backend. Combined input is limited to 200,000 characters.
 
-The reference panel exposes the full supplied GPF and Consultancy Service rulebooks for every
+The reference panel exposes all four supplied rulebooks (GPF, consultancy, Assam procurement,
+and the central works manual) for every
 generated note, with search and rulebook filtering. Provisions used in the note appear first;
 other provisions are available for reference and manual citation. All entries link to their source
 PDF pages. Automatic calculations still use the provisions selected for the proposal's subject and

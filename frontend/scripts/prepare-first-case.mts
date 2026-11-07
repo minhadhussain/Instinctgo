@@ -8,7 +8,7 @@ import { drawDocumentPdf } from "../src/lib/playground/document-pdf";
 
 const samples = fileURLToPath(new URL("../../samples/case-01/", import.meta.url));
 const served = fileURLToPath(new URL("../public/samples/case-01/", import.meta.url));
-const library = JSON.parse(await readFile(new URL("../../samples/noting-library.json", import.meta.url), "utf8")) as { rulebooks: Record<string, { path: string; url: string }> };
+const library = JSON.parse(await readFile(new URL("../../samples/noting-library.json", import.meta.url), "utf8")) as { rulebooks: Record<string, { path: string; url: string; pageCount?: number }> };
 await Promise.all([mkdir(join(samples, "proposals"), { recursive: true }), mkdir(join(samples, "notes"), { recursive: true }), mkdir(served, { recursive: true })]);
 const rulePath = join(samples, "rules/GPF-RULE-FINAL.pdf");
 const ruleBytes = await readFile(rulePath);
@@ -33,7 +33,7 @@ const ruleSources = await Promise.all(Object.entries(library.rulebooks).map(asyn
   const source = new URL(`../../samples/${book.path}`, import.meta.url);
   const target = fileURLToPath(new URL(`../public${book.url}`, import.meta.url));
   await copyFile(source, target);
-  return { id, path: book.path, url: book.url, sha256: createHash("sha256").update(await readFile(source)).digest("hex") };
+  return { id, path: book.path, url: book.url, pageCount: book.pageCount, sha256: createHash("sha256").update(await readFile(source)).digest("hex") };
 }));
 await writeFile(new URL("../../samples/noting-source-manifest.json", import.meta.url), JSON.stringify({ ruleSources }, null, 2) + "\n");
 await writeFile(join(samples, "case-manifest.json"), JSON.stringify({

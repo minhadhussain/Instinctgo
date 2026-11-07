@@ -349,6 +349,126 @@ function draftInput(text: string, title = "new-upload") : NoteInput {
   return { title, proposal_text: text, proposal_id: "new-proposal", supporting_documents: [] };
 }
 
+test("generic subjects use reviewed body text to identify the proposal and note profile", () => {
+  const requests = [
+    ["Subject: Request for approval\nWe request purchase of fifteen computers for the library.", "procurement"],
+    ["Subject: Administrative approval\nPlease approve the acquisition of laboratory equipment through an RFQ.", "procurement"],
+    ["Subject: Request for approval\nPlease approve engagement of an external consultant for the building survey.", "procurement"],
+    ["Subject: Request for approval\nWe seek an advance of INR 50000 from the General Provident Fund for medical treatment.", "gpf-advance"],
+    ["Subject: Request for approval\nI request a non-refundable withdrawal from my GPF account for house construction.", "gpf-withdrawal"],
+    ["Subject: Request for refund\nI vacated the hostel and request a refund of my hostel payment.", "hostel-refund"],
+    ["Subject: Request for approval\nDibrugarh University staff seek distribution of consultancy earnings from an external client.", "consultancy"],
+    ["Subject: Request for permission\nI request three days of casual leave for personal reasons.", "leave"],
+  ] as const;
+  for (const [text, category] of requests) {
+    const draft = buildLocalNote(draftInput(text, "unrelated-gpf-refund-filename"));
+    assert.equal(draft.category, category, text);
+    assert.equal(draft.style_sources.length, 1);
+    if (category === "procurement") assert.match(draft.style_sources[0].title, /Procurement/);
+  }
+});
+
+test("a specific proposal subject takes precedence over incidental cross-category context", () => {
+  const purchase = buildLocalNote(draftInput("Subject: Purchase of office computers\nThe supplier's quotation includes a refund policy. A GPF circular is mentioned in the administrative background. We request approval to purchase five computers."));
+  assert.equal(purchase.category, "procurement");
+  assert.deepEqual(purchase.applied_rules, []);
+  const refund = buildLocalNote(draftInput("Subject: Refund of duplicate semester fee\nEstimated cost: INR 90000\nRefund requested: INR 3200\nI request return of the duplicate payment. The receipt was generated on a computer bought under an earlier procurement."));
+  assert.equal(refund.category, "fee-refund");
+  assert.equal(refund.facts.find((fact) => fact.key === "amount_requested")?.value, "INR 3200");
+  assert.deepEqual(refund.applied_rules, []);
+});
+
+test("procurement uses the same upload and drafting flow with reviewed facts and automatic format selection", async () => {
+  const text = `Dibrugarh University
+Subject: Request for approval
+Applicant: Campus Services Office
+Application date: 2026-11-07
+Department: Library
+Reference: LIB-2026-014
+Estimated expenditure: INR 80000
+
+We request purchase of five computers for the library. The specifications and vendor quotations are submitted for examination.`;
+  const bytes = new TextEncoder().encode(text);
+  const item = createImportedCase({ name: "gpf-example.txt", type: "text/plain", size: bytes.length }, bytes.buffer, "blob:purchase", "FIN-PURCHASE", now);
+  const extracted = applyExtractedText(item, initialCaseState(item), finishExtraction([{ page: 1, text, ocr: false }], "Text"), now);
+  const reviewed = { ...extracted.state, text: text.replace("INR 80000", "INR 75000") };
+  const input = noteInput(extracted.item, reviewed);
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async (url) => {
+      assert.equal(url, "/api/v1/noting/capabilities");
+      return Response.json({ ai_available: false });
+    };
+    const draft = await requestNoteDraft(input, new AbortController().signal);
+    assert.equal(draft.category, "procurement");
+    assert.equal(draft.facts.find((fact) => fact.key === "amount_requested")?.value, "INR 75000");
+    assert.ok(draft.facts.every((fact) => factIsGrounded(fact, input)));
+    assert.match(draft.paragraphs.join(" "), /specifications.*quantity.*estimated expenditure.*budget availability/);
+    assert.ok(draft.applied_rules.some((rule) => rule.id === "assam-proc-24-f"));
+    assert.ok(draft.applied_rules.every((rule) => rule.id.startsWith("assam-proc-")));
+    assert.ok(draft.missing_information.some((value) => value.includes("commencement/amendment")));
+    const result = applyDraftNote(extracted.item, reviewed, draft, now);
+    assert.equal(result.state.draftKind, "note");
+    assert.equal(result.item.category, "procurement");
+    assert.equal(result.item.caseTemplateId, "example-based-noting");
+    assert.equal(result.state.proposalDraft?.text, reviewed.text);
+    assert.equal(result.item.documents[0].original, item.documents[0].original);
+    assert.match(result.state.html, /<table>/);
+    assert.match(result.state.text, /INR 75000/);
+    assert.doesNotMatch(result.state.text, /INR 80000|GPF|DUCF/);
+    assert.equal(result.state.generation?.engine, "local");
+    assert.match(result.state.generation!.styleSources[0].title, /Procurement/);
+    const source = result.item.documents.find((document) => document.id === "assam-proc-24-f")!;
+    assert.equal(source.file?.url, "/samples/case-01/assam-public-procurement-rules-2020.pdf");
+    assert.equal(source.file?.page, 57);
+    assert.equal(source.file?.pageCount, 104);
+    assert.equal(source.issuer, "Government of Assam");
+    assert.match(source.locator, /pages 57, 58/);
+    assert.match(result.state.text, /less than INR 100000.*INR 500000/);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("procurement manuals follow entity scope and work type without a mode selector", () => {
+  const requests = [
+    ["Dibrugarh University\nSubject: Purchase of computers\nPlease examine the vendor quotations for supply of five computers.", true, false],
+    ["Government of India\nSubject: Construction of a boundary wall\nExamine the detailed project report, technical sanction and tender evaluation.", false, true],
+    ["Dibrugarh University\nSubject: Renovation of the library\nPlease examine the estimate and construction tender.", true, false],
+    ["University: Delhi University\nSubject: Purchase of computers\nA vendor located in Assam supplied a quotation for the equipment.", false, false],
+    ["Subject: Purchase of computers\nJurisdiction: Assam\nThe procuring department requests quotations.", true, false],
+    ["Dibrugarh University\nSubject: Construction of a boundary wall\nProcurement framework: Manual for Procurement of Works, 2019, adopted for this project.", true, true],
+    ["Government of India\nSubject: Purchase of office chairs\nPlease approve the procurement of furniture.", false, false],
+  ] as const;
+  for (const [text, assam, works] of requests) {
+    const draft = buildLocalNote(draftInput(text));
+    assert.equal(draft.category, "procurement");
+    assert.equal(draft.applied_rules.some((rule) => rule.id.startsWith("assam-proc-")), assam, text);
+    assert.equal(draft.applied_rules.some((rule) => rule.id.startsWith("goi-works-")), works, text);
+    assert.ok(draft.applied_rules.every((rule) => !rule.id.startsWith("du-gpf")));
+  }
+  const source = allRuleReferences.find((document) => document.id === "goi-works-2-5-7")!;
+  assert.equal(source.file?.page, 40);
+  assert.equal(source.file?.pageCount, 187);
+  assert.equal(source.file?.url, "/samples/case-01/manual-procurement-works-2019.pdf");
+  assert.match(source.issuer!, /Government of India/);
+  const engagement = buildLocalNote(draftInput("Dibrugarh University\nSubject: Engagement of an external consultant\nPlease examine the proposed consultancy procurement."));
+  assert.ok(engagement.applied_rules.some((rule) => rule.id === "assam-proc-25"));
+  assert.ok(!engagement.applied_rules.some((rule) => rule.id === "assam-proc-24-i-2"));
+  const alternative = buildLocalNote(draftInput("Government of India\nSubject: Construction of a boundary wall\nAn alternative design is being examined."));
+  assert.ok(!alternative.applied_rules.some((rule) => rule.id === "goi-works-3-5-5"));
+});
+
+test("procurement reference provisions stay out of employee GPF and provided consultancy notes", () => {
+  for (const text of [
+    "Dibrugarh University\nSubject: GPF advance for medical expenses\nI request a GPF advance of INR 50000 and will obtain treatment quotations.",
+    "Dibrugarh University\nSubject: Distribution of consultancy earnings\nDistributable consultancy earnings: INR 100000\nWe provided testing services to an external client.",
+  ]) {
+    const draft = buildLocalNote(draftInput(text));
+    assert.ok(draft.applied_rules.length > 0);
+    assert.ok(draft.applied_rules.every((rule) => rule.id.startsWith("du-")));
+    assert.ok(noteReferences({ ...sampleCases[0], documents: [] }, { ...initialCaseState(sampleCases[0]), draftKind: "note" }).some((document) => document.id === "assam-proc-3"));
+  }
+});
+
 test("new free-form refund proposals produce their own notes without sample identifiers", () => {
   const input = draftInput(newRefund);
   const draft = buildLocalNote(input);

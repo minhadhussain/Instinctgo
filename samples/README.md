@@ -42,6 +42,11 @@ Rule sources:
   TA/DA and hospitality (4), taxation and fee components (5), consultancy leave (5–6), categories
   (6–7), and records (7). Its stated service-tax rate is recorded as source wording requiring
   transaction-date verification, not applied automatically to a new transaction.
+- `case-01/rules/dms22_assam_public_procurement_rules_2020.pdf`: 104 scanned pages;
+  Assam Public Procurement Rules, 2020, notification dated 2 September and Gazette
+  dated 8 September 2020. The library contains 23 reviewed entries.
+- `case-01/rules/Revision_of_Manual_for_Procurement_of_Works_2019.pdf`: 187 pages;
+  Government of India works manual, 2019 edition. The library contains 12 reviewed entries.
 
 Consultancy clauses are used for University consultancy and relevant consultancy-service refunds.
 They do not establish a student-fee refund policy or refund percentage. Earnings distribution is
@@ -52,3 +57,21 @@ To add another rulebook, review the original PDF, add its metadata and relevant 
 library, connect its request category/relevance conditions, and run the frontend preparation command.
 New PDFs are not automatically treated as applicable rules. Preparation copies registered rulebooks
 to public assets and records their SHA-256 hashes in `noting-source-manifest.json`.
+
+## Procurement manuals and automatic note selection
+
+Both procurement manuals are registered from `samples/case-01/rules/`
+(`D:\instinctgo\samples\case-01\rules\` in this checkout). Their original filenames
+and contents are retained. See [source review](procurement-sources.md) and
+[source-folder instructions](case-01/rules/README.md).
+
+Every proposal uses the same upload → review text → convert to note flow. The
+software detects the request category from the subject and reviewed body, then
+selects its note profile internally. Procurement has an automatically selected
+examination profile for requirements, expenditure, sourcing and financial authority;
+it has no separate screen or mode selector. Assam-context procurement selects the
+Assam rules; central-context works or explicit adoption of the central manual can
+select works provisions. A supplier address alone does not establish jurisdiction.
+Quoted policy limits come only from selected provisions and remain distinct from
+the applicant's amounts. Applicable amendments, institutional coverage and actual
+financial delegations are recorded for confirmation in draft metadata.

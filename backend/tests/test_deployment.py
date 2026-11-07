@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from pypdf import PdfReader
 
 from app.core.config import BACKEND_DIR, get_settings
 from app.db import session
@@ -50,10 +51,19 @@ def test_packaged_noting_sources_work_without_repository_samples(tmp_path, monke
     noting.load_note_library.cache_clear()
     try:
         library = noting.load_note_library()
-        assert {"gpf", "consultancy"} == set(library["rulebooks"])
-        for book in library["rulebooks"].values():
+        assert {"gpf", "consultancy", "assam-procurement", "goi-works"} == set(library["rulebooks"])
+        page_counts = {}
+        for book_id, book in library["rulebooks"].items():
             assert (destination / book["path"]).read_bytes().startswith(b"%PDF")
+            page_counts[book_id] = len(PdfReader(destination / book["path"]).pages)
+            if book.get("pageCount"):
+                assert page_counts[book_id] == book["pageCount"]
+        for rule in library["rules"]:
+            assert all(
+                1 <= page <= page_counts[rule.get("rulebook", "gpf")]
+                for page in rule.get("pages", [rule["page"]])
+            )
         manifest = json.loads((destination / "noting-source-manifest.json").read_text())
-        assert len(manifest["ruleSources"]) == 2
+        assert len(manifest["ruleSources"]) == 4
     finally:
         noting.load_note_library.cache_clear()

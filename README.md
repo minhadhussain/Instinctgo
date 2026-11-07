@@ -86,9 +86,13 @@ npm run typecheck
 npm run build
 ```
 
-See [backend setup](backend/README.md), [frontend setup](frontend/README.md), and
-[architecture](docs/architecture.md) for details. PostgreSQL and Redis clients are installed;
+See [backend setup](backend/README.md), [frontend setup](frontend/README.md), and the
+[full system architecture](docs/architecture.md) for systems, data flows, API contracts,
+storage, AI drafting, and deployment details. PostgreSQL and Redis clients are installed;
 configure an existing service when those features are needed.
+
+For a plain-language walkthrough and technical explanation of local note generation,
+see [How the offline noting system works](docs/offline-noting-system.md).
 
 ## Vercel deployment
 

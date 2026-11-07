@@ -11,6 +11,20 @@
       "path": "case-01/rules/Consultancy-Service-Rules-of-Dibrugarh-University.pdf",
       "url": "/samples/case-01/consultancy-service-rules.pdf",
       "sha256": "1578827b78d33ac5ef2f8a3df7bb86a5327969b0eeb056bb15e23c3b5bf9dcd5"
+    },
+    {
+      "id": "assam-procurement",
+      "path": "case-01/rules/dms22_assam_public_procurement_rules_2020.pdf",
+      "url": "/samples/case-01/assam-public-procurement-rules-2020.pdf",
+      "pageCount": 104,
+      "sha256": "7f2186799708093a03c145bd35b7dccefbd87c392d2f370b533022ffc2b512f3"
+    },
+    {
+      "id": "goi-works",
+      "path": "case-01/rules/Revision_of_Manual_for_Procurement_of_Works_2019.pdf",
+      "url": "/samples/case-01/manual-procurement-works-2019.pdf",
+      "pageCount": 187,
+      "sha256": "77e6d869635a4dfd33fde22b861dfc9425052b021813a4de1a58da5734925be2"
     }
   ]
 }

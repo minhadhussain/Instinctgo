@@ -77,7 +77,7 @@ is not one of these two request-driven services.
   `frontend/` also prepares same-origin OCR/PDF workers and the served proposal/rule PDFs.
 - Backend: `.python-version` selects Python 3.12, supported by Vercel. The application entrypoint
   is `app.main:app`. `python scripts/prepare-vercel.py` copies the reviewed library, source
-  manifest, both GPF/consultancy PDFs and note-format PDF into `backend/resources/noting/`.
+  manifest, all four registered rule PDFs and note-format PDF into `backend/resources/noting/`.
   Rule hashes are checked against the committed source manifest before packaging. These
   generated files are included in the function bundle, so it needs no repository-relative files
   outside its service at runtime.
@@ -103,7 +103,7 @@ Check:
 - `/api/v1/health` returns 200 via the frontend-to-backend binding.
 - `/api/v1/noting/capabilities` returns provider availability.
 - `/api/v1/noting/draft` accepts reviewed proposal JSON (503 is expected without an AI key).
-- A fresh uploaded proposal converts to text and a note, with both rulebooks accessible when relevant.
+- A fresh uploaded proposal converts to text and a note, with the registered rulebooks accessible and applicable provisions selected automatically.
 - `/api/v1/health/ready` succeeds once the managed database is configured.
 
 For standalone local development, `npm run dev` still starts Next.js and FastAPI. Only in this

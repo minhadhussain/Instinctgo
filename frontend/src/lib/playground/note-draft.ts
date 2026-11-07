@@ -17,6 +17,11 @@ export interface DraftNote {
 
 export const NOTE_INPUT_LIMIT = 200000;
 export const NOTE_TEMPLATE_ID = "example-based-noting";
+interface RulebookMetadata {
+  id: string; institution: string; signalPattern: string; title: string; path: string;
+  url: string; issued: string; effective: string; version: string;
+  scopePattern?: string; scopeInstitutions?: string[]; scopeNote?: string; pageCount?: number;
+}
 export const factLabels: Record<FactKey, string> = { applicant: "Applicant", department: "Department / course", reference: "Reference / identification", application_date: "Application date", amount_requested: "Amount requested", amount_mentioned: "Amount mentioned", fund_balance: "GPF balance (stated)", instalments: "Repayment instalments (stated)", monthly_pay: "Monthly pay (stated)", consultancy_earnings: "Distributable consultancy earnings (stated)", consultancy_days: "Consultancy leave days requested", yearly_consultancy_days: "Consultancy leave already taken this calendar year", annual_consultancy_fees: "Total yearly consultancy fees (stated)", annual_salary: "Gross annual University salary (stated)" };
 const moneyPattern = "(?:₹|\\bINR\\b|\\bRs\\.?)[ \\t]*(?:\\d{1,3}(?:[, ]\\d{2,3})+|\\d+)(?:\\.\\d{1,2})?(?:[ \\t]*(?:lakhs?|lacs?|crores?|thousand))?(?![A-Za-z0-9,]|\\.\\d)";
 const moneyTokens = (text: string) => [...text.matchAll(new RegExp(moneyPattern, "gi"))];
@@ -49,33 +54,42 @@ function institutionOf(text: string) {
 export function classifyProposal(input: string): NoteCategory {
   const text = clean(input);
   const subject = subjectOf(text);
-  const signal = (subject ?? text.slice(0, 1800)).toLowerCase();
   const consultancy = new RegExp(library.rulebooks.consultancy.signalPattern, "i").test(text);
-  if (/hir(?:e|ing)|appoint.*external/.test(signal) && /consultant/.test(signal)) return "procurement";
-  if (consultancy && /refund/.test(signal)) return "service-refund";
-  if (consultancy && (/consultanc|consulting|ducf|external client|industrial client|outside client/.test(signal) || !subject || /testing|calibration|analys|earning|distribut|special.*leave/.test(signal))) return "consultancy";
   const gpf = /\bg\.?p\.?f\.?\b|general provident fund/i.test(text);
-  if (gpf && (!subject || /gpf|provident|advance|withdraw|retirement|settlement/.test(signal))) {
-    const request = signal.replace(/\bnot\s+(?:a\s+)?(?:non[- ]?refundable\s+)?withdrawal/g, "").replace(/\bno previous advance/g, "");
-    if (/final|on retirement|retired|quit.*service|leaving.*service/.test(request)) return "gpf-final";
-    if (/withdraw|non[- ]?refundable/.test(request)) return "gpf-withdrawal";
-    if (/advance/.test(request)) return "gpf-advance";
+
+  function identify(signal: string, useFallback = false): NoteCategory | undefined {
+    const purchase = /\b(?:procure\w*|procuring|purchas\w*|buy(?:ing)?|bought|acquisition|acquire|quotations?|tender\w*|bids?|bidding|rfq|rfp|gem)\b|government e[- ]marketplace|supply and installation/.test(signal)
+      || new RegExp(library.rulebooks["goi-works"].signalPattern, "i").test(signal);
+    const engage = /\bhir(?:e|ing)\b|\bengag(?:e|ement|ing)\b|appoint.*external|outsourc/.test(signal);
+    if ((purchase || engage) && /consultant|consultanc|consulting/.test(signal)) return "procurement";
+    if (consultancy && /refund/.test(signal) && /consultanc|consulting|ducf|analysis|analytical|service|testing|client/.test(signal)) return "service-refund";
+    if (consultancy && /consultanc|consulting|ducf|external client|industrial client|outside client|testing|calibration|analys|earning|distribut|special.*leave/.test(signal)) return "consultancy";
+    if (gpf && /gpf|provident|advance|withdraw|retirement|settlement/.test(signal)) {
+      const request = signal.replace(/\bnot\s+(?:a\s+)?(?:non[- ]?refundable\s+)?withdrawal/g, "").replace(/\bno previous advance/g, "");
+      if (/final|on retirement|retired|quit.*service|leaving.*service/.test(request)) return "gpf-final";
+      if (/withdraw|non[- ]?refundable/.test(request)) return "gpf-withdrawal";
+      if (/advance/.test(request)) return "gpf-advance";
+    }
+    if (/refund|return.{0,25}(fee|payment)|reimburse/.test(signal)) {
+      if (/hostel|boarding|residence hall/.test(signal)) return "hostel-refund";
+      if (/analysis|analytical|laboratory|service|xrd/.test(signal)) return "service-refund";
+      if (/duplicate|twice|double payment|excess/.test(signal)) return "fee-refund";
+      if (/admission|withdrawal|withdraw.*seat/.test(signal)) return "admission-refund";
+      return /\bfees?\b/.test(signal) || useFallback ? "fee-refund" : undefined;
+    }
+    if (/\bleave\b|regulari[sz].*absence/.test(signal)) return "leave";
+    if (purchase) return "procurement";
+    if (engage && /services?|housekeeping|security|catering|vehicle/.test(signal)) return "procurement";
+    return undefined;
   }
-  const topic = `${signal}\n${text.toLowerCase()}`;
-  if (/refund|return.{0,25}(fee|payment)|reimburse/.test(topic)) {
-    if (/hostel|boarding|residence hall/.test(signal)) return "hostel-refund";
-    if (/analysis|analytical|laboratory|service|xrd/.test(signal)) return "service-refund";
-    if (/duplicate|twice|double payment|excess/.test(signal)) return "fee-refund";
-    if (/admission|withdrawal|withdraw.*seat/.test(signal)) return "admission-refund";
-    if (/hostel/.test(topic)) return "hostel-refund";
-    return "fee-refund";
-  }
-  if (/\bleave\b|regulari[sz].*absence/.test(signal)) return "leave";
-  if (/procure|purchase|quotation|tender|buying/.test(signal)) return "procurement";
-  return "general";
+
+  // Prefer a specific subject; generic headings fall through to the reviewed body.
+  // The caller never supplies a mode or category, and filenames are not signals.
+  return (subject ? identify(compact(subject).toLowerCase()) : undefined)
+    ?? identify(compact(text).toLowerCase(), true) ?? "general";
 }
 
-export function extractProposalFacts(input: NoteInput): ProposalFact[] {
+export function extractProposalFacts(input: NoteInput, category = classifyProposal(input.proposal_text)): ProposalFact[] {
   const sources = [{ id: input.proposal_id, text: clean(input.proposal_text) }, ...input.supporting_documents.map((doc) => ({ id: doc.id, text: clean(doc.text) }))];
   const facts: ProposalFact[] = [];
   function add(key: FactKey, value: string | undefined, evidence: string | undefined, source_id: string) {
@@ -89,7 +103,7 @@ export function extractProposalFacts(input: NoteInput): ProposalFact[] {
       ["reference", ["Case reference", "Reference", "Ref\\.?", "Student ID", "Employee ID", "Roll(?: no\\.?| number)?", "Registration(?: no\\.?| number)?", "GPF account"]],
       ["application_date", ["Application date", "Date"]],
       ["fund_balance", ["GPF balance", "Fund balance", "Balance in (?:my )?GPF(?: account)?"]],
-      ["amount_requested", ["Advance requested", "Amount requested", "Refund requested", "Requested amount", "Amount claimed", "Amount of (?:advance|refund)"]],
+      ["amount_requested", ["Advance requested", "Amount requested", "Refund requested", "Requested amount", "Amount claimed", "Amount of (?:advance|refund)", ...(category === "procurement" ? ["Estimated (?:cost|expenditure|value)", "Total estimated cost", "Proposed expenditure", "Procurement value"] : [])]],
       ["instalments", ["Repayment instalments", "Repayment installments", "Instalments", "Installments"]],
       ["monthly_pay", ["Monthly pay", "Monthly salary", "Basic pay"]],
       ["consultancy_earnings", ["Distributable consultancy earnings", "Distributable earnings"]],
@@ -130,25 +144,39 @@ export function extractProposalFacts(input: NoteInput): ProposalFact[] {
 }
 
 export function rulebookFor(rule: (typeof library.rules)[number]) {
-  return "rulebook" in rule && rule.rulebook === "consultancy" ? library.rulebooks.consultancy : library.rulebooks.gpf;
+  const id = ("rulebook" in rule ? rule.rulebook : undefined) ?? "gpf";
+  const books: Record<string, RulebookMetadata> = library.rulebooks;
+  const book = books[id];
+  if (!book) throw new Error(`Rule ${rule.id} refers to an unregistered rulebook: ${id}`);
+  return book;
 }
 
-export const allRuleReferences: ReferenceDocument[] = library.rules.map((rule) => {
+function ruleReference(rule: (typeof library.rules)[number], application?: string): ReferenceDocument {
   const book = rulebookFor(rule), name = book.path.split("/").at(-1)!;
-  return { id: rule.id, title: rule.title, type: "Rule reference", source: book.title, date: book.issued, effectiveDate: book.effective, version: book.version, status: "Current", department: "Finance & Accounts", locator: `${name} · page ${rule.page}`, content: [`Extract / summary from ${book.title}.`, rule.excerpt], highlight: -1, file: { name, url: book.url, page: rule.page } };
-});
+  const pages = "pages" in rule && rule.pages ? rule.pages : [rule.page];
+  return { id: rule.id, title: rule.title, type: application ? "Supplied rule provision" : "Rule reference", source: book.title, issuer: book.institution, date: book.issued, effectiveDate: book.effective, version: book.version, status: "Current", department: "Finance & Accounts", locator: `${name} · ${pages.length > 1 ? `pages ${pages.join(", ")}` : `page ${rule.page}`}`, content: [`Extract / summary from ${book.title}.`, rule.excerpt], highlight: -1, file: { name, url: book.url, page: rule.page, pageCount: book.pageCount }, application };
+}
+
+export const allRuleReferences: ReferenceDocument[] = library.rules.map((rule) => ruleReference(rule));
 
 export function noteReferences(item: CaseDefinition, state: CaseState): ReferenceDocument[] {
   const references = [...item.documents, ...state.extraDocuments, ...(state.draftKind === "note" ? allRuleReferences : [])];
   return references.filter((doc, index) => references.findIndex((other) => other.id === doc.id) === index);
 }
 
+export function rulebookMatches(book: RulebookMetadata, text: string, institution: string | null) {
+  const matches = (pattern: string) => new RegExp(pattern, "im").test(clean(text)) || new RegExp(pattern, "im").test(compact(text));
+  if (!matches(book.signalPattern)) return false;
+  if (book.scopePattern) return matches(book.scopePattern) || !!institution && !!book.scopeInstitutions?.some((name) => compact(name).toLowerCase() === compact(institution).toLowerCase());
+  return !institution || compact(book.institution).toLowerCase() === compact(institution).toLowerCase();
+}
+
 export function rulesForProposal(category: NoteCategory, text: string, institution = institutionOf(text)) {
   return library.rules.filter((rule) => {
     const book = rulebookFor(rule);
-    return rule.categories.includes(category) && new RegExp(book.signalPattern, "i").test(text)
-      && (!institution || book.institution.toLowerCase() === institution.toLowerCase())
-      && (!("requiresAny" in rule) || rule.requiresAny?.some((term) => text.toLowerCase().includes(term)));
+    return rule.categories.includes(category) && rulebookMatches(book, text, institution)
+      && (!("requiresAny" in rule) || rule.requiresAny?.some((term) => text.toLowerCase().includes(term)))
+      && (!("requiresPattern" in rule) || !rule.requiresPattern || new RegExp(rule.requiresPattern, "i").test(compact(text)));
   });
 }
 
@@ -158,7 +186,7 @@ export function buildLocalNote(input: NoteInput): DraftNote {
   if (text.length + input.supporting_documents.reduce((sum, doc) => sum + doc.text.length, 0) > NOTE_INPUT_LIMIT) throw new Error("The proposal and supporting text exceed the 200,000-character drafting limit.");
   const category = classifyProposal(text);
   const profile = library.profiles.find((profile) => profile.categories.includes(category))!;
-  const facts = extractProposalFacts(input);
+  const facts = extractProposalFacts(input, category);
   const institution = institutionOf(text);
   const fact = (key: FactKey) => facts.find((entry) => entry.key === key)?.value;
   const titles: Record<NoteCategory, string> = { "fee-refund": "Refund of fee / excess payment", "admission-refund": "Admission withdrawal and refund request", "hostel-refund": "Refund of hostel fee", "service-refund": "Refund of service / analysis fee", "gpf-advance": "Request for a GPF advance", "gpf-withdrawal": "Request for withdrawal from GPF", "gpf-final": "Final payment of GPF accumulation", consultancy: "Consultancy proposal for examination", leave: "Leave request for examination", procurement: "Procurement proposal for examination", general: "Proposal for administrative examination" };
@@ -170,7 +198,10 @@ export function buildLocalNote(input: NoteInput): DraftNote {
   if (category !== "general" && category !== "leave" && category !== "consultancy" && !fact("amount_requested") && !fact("amount_mentioned")) missing.push("The requested amount is not clearly stated.");
   const rules = rulesForProposal(category, text);
   if (!rules.length) missing.push("The applicable institutional policy and delegation of authority have not been supplied for this request.");
-  if (rules.length && !institution) missing.push("Confirm that the supplied Dibrugarh University rules govern the applicant's institution.");
+  const books = [...new Map(rules.map((rule) => { const book = rulebookFor(rule); return [book.id, book] as const; })).values()];
+  if (!institution && books.some((book) => !book.scopePattern)) missing.push("Confirm that the supplied Dibrugarh University rules govern the applicant's institution.");
+  for (const book of books) if (book.scopeNote) missing.push(book.scopeNote);
+  if (category === "procurement" && !rules.length) missing.push("Identify the procuring entity and applicable State/central procurement framework in the reviewed proposal so the supplied manuals can be matched.");
   const paragraphs = [`An application${fact("application_date") ? ` dated ${fact("application_date")}` : ""}${fact("applicant") ? ` from ${fact("applicant")}` : ""} has been received concerning ${subject.replace(/\.$/, "")}. The uploaded proposal${fact("reference") ? ` (reference / identification: ${fact("reference")})` : ""} may kindly be seen in the file.`];
   const flow = compact(text);
   const bodyStart = flow.search(/\b(?:I(?:,|\s)|We\s|Please\s|Kindly\s)/);
@@ -205,10 +236,10 @@ export function buildLocalNote(input: NoteInput): DraftNote {
     } else missing.push("Verified GPF balance and monthly pay are required for the Rule 13.2 comparison.");
   }
   else if (category === "gpf-final" && rules.length) paragraphs.push("Verify the cessation / retirement particulars, final account balance and any applicable conditions before settling the amount payable under the supplied final-payment provisions.");
+  const applications = rules.flatMap((rule) => "application" in rule && rule.application ? [rule.application] : []);
+  for (let index = 0; index < applications.length; index += 3) paragraphs.push(applications.slice(index, index + 3).join(" "));
   if (rules.some((rule) => rulebookFor(rule).id === "consultancy")) {
     const relevant = (id: string) => rules.find((rule) => rule.id === `du-consultancy-${id}`);
-    const applications = rules.flatMap((rule) => "application" in rule && rule.application ? [rule.application] : []);
-    for (let index = 0; index < applications.length; index += 3) paragraphs.push(applications.slice(index, index + 3).join(" "));
     missing.push("Confirm the transaction-date tax provisions; the supplied consultancy PDF's service-tax wording does not establish a current tax rate.");
     if (category === "service-refund") missing.push("The consultancy rules establish collection and administration requirements but do not specify refund entitlement or a refund percentage; obtain the applicable contract / refund authority.");
     const earnings = moneyValue(fact("consultancy_earnings"));
@@ -232,8 +263,7 @@ export function applyDraftNote(item: CaseDefinition, state: CaseState, draft: Dr
   const rules: ReferenceDocument[] = draft.applied_rules.map((application) => {
     const source = eligibleRules.find((rule) => rule.id === application.id);
     if (!source) throw new Error("The draft cites a rule that is not supported for this proposal.");
-    const book = rulebookFor(source), name = book.path.split("/").at(-1)!;
-    return { id: source.id, title: source.title, type: "Supplied rule provision", source: book.title, date: book.issued, effectiveDate: book.effective, version: book.version, status: "Current", department: "Finance & Accounts", locator: `${name} · page ${source.page}`, content: [`Extract / summary from ${book.title}.`, source.excerpt], highlight: -1, file: { name, url: book.url, page: source.page }, application: application.reason };
+    return ruleReference(source, application.reason);
   });
   const fact = (key: FactKey) => draft.facts.find((entry) => entry.key === key)?.value;
   const paragraphs = cleanNoteParagraphs(draft.paragraphs);
