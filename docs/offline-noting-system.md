@@ -108,6 +108,10 @@ It combines:
 5. A prepared examination paragraph.
 6. Applicable calculation and rule-explanation paragraphs.
 
+For procurement, the generic examination and copied rule-explanation instructions
+are kept with the applicable references instead of being appended to the main note.
+The note body contains the proposal's particulars, request and case-specific text.
+
 ### Step 8: Open it for editing and review
 
 The generated note appears in the editor. The original document and the proposal
@@ -532,10 +536,11 @@ An Assam vendor address alone does not establish Assam jurisdiction. Scope and
 amendment confirmations are recorded separately. If no rule is selected, the note
 can still be generated with missing-policy information in metadata.
 
-The two manuals add 35 reviewed provisions and source page links. The local writer
-can quote their stated policy thresholds in rule-examination paragraphs. These are
-source conditions, not newly executed procurement or approval decisions. The full
-PDFs remain available for reference beyond the curated summaries. See
+The two manuals add 35 reviewed provisions and source page links. Only provisions
+selected for the current proposal appear in the reference panel and assistant context.
+Their generic examination instructions and policy-limit summaries remain reference
+content rather than automatic note paragraphs. The full source PDFs are accessible
+through applicable provisions. See
 [procurement source integration](../samples/procurement-sources.md).
 
 ### 7.2 Calculations are explicitly programmed
@@ -593,10 +598,10 @@ authority questions are recorded as missing information when relevant.
 | Applicant table | Values inserted into a fixed four-column structure |
 | Receipt paragraph | Fixed sentence with optional date/name/reference substitutions |
 | Applicant's circumstances | Selected extract from the proposal itself |
-| Examination paragraph | Profile's prepared `examination` text |
+| Examination paragraph | Profile's prepared `examination` text, except reference-only categories such as procurement |
 | GPF calculation paragraph | Fixed sentence with calculated values and within/exceeds branch |
 | GPF rule summary | Category-specific text written in TypeScript |
-| Rule application paragraphs | Selected rule `application` strings, grouped in batches of three through the shared drafter |
+| Rule application guidance | Selected `application` strings; kept in references for procurement rather than copied into the note |
 | Missing fields/conflicts | Structured metadata, rather than an automatic closing list |
 
 ### 8.2 Subject and introduction
@@ -652,6 +657,10 @@ Both local draft generation and note application run this cleaner. Export also r
 note-specific cleanup. The stored original/reviewed proposal is not rewritten by
 this process, although proposal extracts included in generated prose pass through
 the cleaner.
+
+The `referenceOnlyCategories` setting also removes exact copies of the relevant
+profile/rule guidance, including copies returned by an AI provider. Case-specific
+analysis that differs from the generic templates is retained.
 
 The local result sets `recommendation: ""`. It does not append an automatic final
 recommendation or standard closing. The current note consists of its headings,
@@ -899,6 +908,9 @@ browser `localStorage`/an application IndexedDB database.
 
 - Tiptap provides the editable HTML document and plain-text representation.
 - The preview paginates the current HTML in the browser.
+- Editor and preview share the header, signature layout and document typography;
+  both use the same current draft body, including manual edits. Opening preview
+  does not create a new version or alter the note.
 - TXT downloads use current text.
 - Word output uses the browser `docx` package.
 - PDF output uses jsPDF and the project's document drawing helper.

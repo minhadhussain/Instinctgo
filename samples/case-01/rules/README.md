@@ -13,8 +13,8 @@ The supplied procurement manuals are now registered, alongside GPF and consultan
 | `dms22_assam_public_procurement_rules_2020.pdf` | 104 | 23 reviewed Assam procurement entries |
 | `Revision_of_Manual_for_Procurement_of_Works_2019.pdf` | 187 | 12 reviewed central works entries |
 
-Both originals remain intact. The full PDFs are available in the application's
-reference panel; the drafter uses the relevant reviewed provisions and page links.
+Both originals remain intact. The full PDFs are available through the current
+proposal's applicable references; the panel displays only selected provisions.
 
 These PDFs are reference material for future proposals. They are registered in the
 shared `samples/noting-library.json` with their institution/scope, edition, clause

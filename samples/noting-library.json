@@ -1,8 +1,9 @@
 {
-  "version": 5,
+  "version": 6,
   "formatSource": "case-01/notes/Untitled design (5).pdf",
   "closing": "",
   "notePresentation": {
+    "referenceOnlyCategories": ["procurement"],
     "omitPrefixes": [
       "The following particulars / records require clarification",
       "The following particulars require clarification",

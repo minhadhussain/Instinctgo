@@ -35,6 +35,7 @@ export function respondToIntake(question: string): AssistantResponse {
 export const demoAI: AIAdapter = {
   mode: "local-demo",
   respond({ question, mode, current, state, cases, states, references = [], contextId }) {
+    if (current.caseTemplateId === NOTE_TEMPLATE_ID) references = references.filter((doc) => doc.original || !isRuleDocument(doc) || state.appliedRuleIds?.includes(doc.id));
     const q = question.toLowerCase();
     const context = references.find((doc) => doc.id === contextId);
     if (/^(approve|sign|submit|forward)\b/.test(q.trim())) return { text: "Use the workflow actions below the editor to submit, forward or sign the note.", citations: [] };
@@ -51,7 +52,7 @@ export const demoAI: AIAdapter = {
     if (current.caseTemplateId === NOTE_TEMPLATE_ID) {
       if (/rule|clause|polic/.test(q)) {
         const rules = references.filter(isRuleDocument);
-        if (/which|applied|relevant|reference/.test(q)) return { text: rules.map((doc) => `${doc.title}\n${doc.locator}`).join("\n\n"), citations: rules.map((doc) => doc.id) };
+        if (/which|applied|relevant|reference/.test(q)) return { text: rules.length ? rules.map((doc) => `${doc.title}\n${doc.locator}`).join("\n\n") : "No applicable provisions were identified in the supplied rulebooks for this proposal.", citations: rules.map((doc) => doc.id) };
         return respondToRules(question, rules, contextId ?? "");
       }
       if (mode === "draft") return { text: "Suggested wording", draft: current.recommendation || current.note.at(-1)?.text, citations: state.appliedRuleIds ?? [] };

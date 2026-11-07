@@ -1,6 +1,7 @@
 import library from "../../../../samples/noting-library.json";
 import { escapeHtml } from "./renderer";
 import { cleanNoteParagraphs } from "./note-content";
+import { isRuleDocument } from "./rule-matches";
 import type { CaseDefinition, CaseState, Finding, ReferenceDocument } from "./types";
 
 export type NoteCategory = "fee-refund" | "admission-refund" | "hostel-refund" | "service-refund" | "gpf-advance" | "gpf-withdrawal" | "gpf-final" | "consultancy" | "leave" | "procurement" | "general";
@@ -160,7 +161,9 @@ function ruleReference(rule: (typeof library.rules)[number], application?: strin
 export const allRuleReferences: ReferenceDocument[] = library.rules.map((rule) => ruleReference(rule));
 
 export function noteReferences(item: CaseDefinition, state: CaseState): ReferenceDocument[] {
-  const references = [...item.documents, ...state.extraDocuments, ...(state.draftKind === "note" ? allRuleReferences : [])];
+  const applied = new Set(state.appliedRuleIds ?? item.documents.filter(isRuleDocument).map((doc) => doc.id));
+  const references = [...item.documents, ...state.extraDocuments, ...allRuleReferences.filter((doc) => applied.has(doc.id))]
+    .filter((doc) => doc.original || !isRuleDocument(doc) || state.draftKind === "note" && applied.has(doc.id));
   return references.filter((doc, index) => references.findIndex((other) => other.id === doc.id) === index);
 }
 
@@ -186,6 +189,7 @@ export function buildLocalNote(input: NoteInput): DraftNote {
   if (text.length + input.supporting_documents.reduce((sum, doc) => sum + doc.text.length, 0) > NOTE_INPUT_LIMIT) throw new Error("The proposal and supporting text exceed the 200,000-character drafting limit.");
   const category = classifyProposal(text);
   const profile = library.profiles.find((profile) => profile.categories.includes(category))!;
+  const referenceOnly = library.notePresentation.referenceOnlyCategories.includes(category);
   const facts = extractProposalFacts(input, category);
   const institution = institutionOf(text);
   const fact = (key: FactKey) => facts.find((entry) => entry.key === key)?.value;
@@ -210,7 +214,7 @@ export function buildLocalNote(input: NoteInput): DraftNote {
   const statement = (sentences.length ? sentences.slice(0, 3).join(" … ") : cleanNoteParagraphs([prose]).join(" ")).slice(0, 1600);
   if (statement) paragraphs.push(`The applicant's stated request and circumstances are recorded in the following extract: “${statement}${statement.length === 1600 ? "…" : ""}”`);
   if (input.supporting_documents.length) paragraphs.push(`Supporting material supplied with this case: ${input.supporting_documents.map((doc) => doc.title).join("; ")}. Its contents and relevance should be checked with the proposal.`);
-  paragraphs.push(profile.examination);
+  if (!referenceOnly) paragraphs.push(profile.examination);
   const findings: DraftNote["findings"] = [];
   const requested = moneyValue(fact("amount_requested"));
   const balance = moneyValue(fact("fund_balance"));
@@ -236,7 +240,7 @@ export function buildLocalNote(input: NoteInput): DraftNote {
     } else missing.push("Verified GPF balance and monthly pay are required for the Rule 13.2 comparison.");
   }
   else if (category === "gpf-final" && rules.length) paragraphs.push("Verify the cessation / retirement particulars, final account balance and any applicable conditions before settling the amount payable under the supplied final-payment provisions.");
-  const applications = rules.flatMap((rule) => "application" in rule && rule.application ? [rule.application] : []);
+  const applications = referenceOnly ? [] : rules.flatMap((rule) => "application" in rule && rule.application ? [rule.application] : []);
   for (let index = 0; index < applications.length; index += 3) paragraphs.push(applications.slice(index, index + 3).join(" "));
   if (rules.some((rule) => rulebookFor(rule).id === "consultancy")) {
     const relevant = (id: string) => rules.find((rule) => rule.id === `du-consultancy-${id}`);

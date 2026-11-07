@@ -108,7 +108,9 @@ not automatic executable interpretation of every clause in the PDFs.
 - Works paragraph 3.5.1: the supplied edition describes OTE above **INR 500000**.
   This is not the Assam RFQ per-occasion ceiling.
 
-Drafts quote these as source-specific policy conditions. No new automatic sanction,
+The applicable reference entries explain these source-specific conditions. Generic
+procurement checklists and copied rule-application paragraphs are omitted from the
+note body; case-specific analysis can still cite an applicable condition. No new automatic sanction,
 tax calculation, procurement execution or annual-ledger verification is performed.
 The AI validator permits monetary policy limits only from eligible cited entries;
 uncited or cross-scope thresholds are rejected.
@@ -117,11 +119,13 @@ uncited or cross-scope thresholds are rejected.
 
 - Browser local drafting: `frontend/src/lib/playground/note-draft.ts`.
 - Backend applicability and monetary checks: `backend/app/services/noting.py`.
-- Reviewed metadata/excerpts: `samples/noting-library.json`, version 5.
+- Reviewed metadata/excerpts: `samples/noting-library.json`, version 6.
 - Asset preparation: `npm run prepare:case --workspace @instinctgo/frontend`.
 - Backend packaging: `uv run --directory backend python scripts/prepare-vercel.py`.
 - Reference display includes issuing body, complete PDF size in pages, source
   edition, primary page link and multi-page provision locators.
+- Only selected applicable provisions and their rulebooks are shown beside a note
+  and in its assistant/source picker; the complete registered catalog is not appended.
 
 Restart a running backend after library changes because its library is cached.
 Rebuild/redeploy hosted services to publish the new assets and application code.

@@ -186,7 +186,7 @@
 .pg-toolbar-divider { width: 1px; height: 22px; background: var(--line); }
 .pg-writing-toolbar .pg-undo-tools { margin-left: auto; }
 .pg-finance .pg-document-scroll { height: clamp(400px, 60svh, 640px); max-height: none; padding: 20px; background: #f0f2f5; scrollbar-color: #c4ccd7 transparent; }
-.pg-finance .pg-note-paper { padding: 30px; min-height: 760px; border-color: #e4e7ed; box-shadow: 0 2px 8px #11182705; }
+.pg-finance .pg-note-paper { max-width: 680px; margin-inline: auto; padding: 48px; min-height: 960px; border-color: #e4e7ed; box-shadow: 0 2px 8px #11182705; }
 .pg-finance .pg-note-paper > h2 { font-weight: 500; margin: 24px 0 18px; }
 .pg-finance .pg-note-kicker { flex-wrap: wrap; }
 .pg-finance .pg-note-reference { margin-bottom: 24px; }
@@ -264,13 +264,17 @@
 .pg-preview-save { color: var(--subtle); margin: 14px 0; }
 .pg-preview-canvas { background: #f0f2f5; border: 1px solid var(--line); border-radius: 7px; padding: 18px; max-height: 62svh; overflow: auto; }
 .pg-preview-sheet { width: 680px; min-height: 960px; margin: 0 auto; padding: 48px; background: #fff; box-shadow: 0 3px 12px #11182708; }
-.pg-preview-sheet > header { border-bottom: 1px solid var(--line); margin-bottom: 22px; padding-bottom: 12px; }
-.pg-preview-sheet > header > small { display: block; margin-top: 8px; }
-.pg-preview-sheet > header p { color: var(--subtle); }
+.pg-document-header { border-bottom: 1px solid var(--line); margin-bottom: 22px; padding-bottom: 12px; overflow-wrap: anywhere; }
+.pg-document-header > small { display: block; margin-top: 8px; }
+#workspace .pg-document-header > h2 { font-family: var(--font-poppins), sans-serif; font-size: 24px; line-height: 1.5; font-weight: 600; font-style: normal; letter-spacing: 0; margin: 18px 0 12px; }
+#workspace .pg-document-header > span { font-size: 13px; }
+#workspace .pg-document-header :is(p, small) { font-size: 12px; color: var(--subtle); }
+#workspace .pg-document-content { margin: 0; }
+.pg-document-signature { padding-top: 18px; font-weight: 500; }
+.pg-document-signature > small { display: block; margin-top: 6px; color: var(--subtle); }
 .pg-preview-sheet > footer { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 24px; color: var(--subtle); }
 .pg-preview-content { min-height: 0; margin: 0; }
 .pg-preview-measure { position: fixed; top: 0; left: -10000px; width: 584px; visibility: hidden; margin: 0; padding: 0; min-height: 0; }
-.pg-preview-signature { padding-top: 18px; font-weight: 500; }
 .pg-finance.pg-expanded .pg-finance-grid { max-width: 1550px; margin-inline: auto; grid-template-columns: minmax(0, 1fr) 350px; }
 .pg-finance.pg-expanded .pg-document-scroll { height: clamp(340px, 55svh, 650px); }
 .pg-finance :is(.pg-file-requirements, .pg-recent-documents, .pg-chat-context-details, .pg-chat-prompts, .pg-action-menu, .pg-source-info) > summary::-webkit-details-marker { display: none; }

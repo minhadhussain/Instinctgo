@@ -21,7 +21,7 @@ Sample notes need not follow these particular rules. They are examples of format
 2. Convert it to text and review the extracted content.
 3. Choose **Convert to note** as a separate action.
 4. Prepare the note using the applicable supplied rules.
-5. Browse the full rule reference library beside the note. Inline highlighting is disabled for now.
+5. Browse only the applicable provisions beside the note. Inline highlighting is disabled for now.
 6. Review and edit the note.
 
 See `case-01/README.md` and `case-01/case-manifest.json` for the source mapping and regeneration command.
@@ -75,3 +75,8 @@ select works provisions. A supplier address alone does not establish jurisdictio
 Quoted policy limits come only from selected provisions and remain distinct from
 the applicant's amounts. Applicable amendments, institutional coverage and actual
 financial delegations are recorded for confirmation in draft metadata.
+
+Generic procurement examination instructions and copied rule-application summaries
+are reference-only content, not appended note paragraphs. The editor and preview
+use the same draft body, while the rule panel and assistant receive the selected
+provisions only.

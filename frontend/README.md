@@ -40,17 +40,19 @@ in `samples/noting-library.json`, including refund, GPF, consultancy and general
 Local drafting extracts common labelled or free-form particulars and quotes the request.
 Generated notes contain the case facts and examination without boilerplate clarification paragraphs,
 conditional closing paragraphs or disclaimer footers.
+Procurement notes omit the generic examination/checklist and copied rule-application
+paragraphs; those instructions remain in the applicable references. The editor and
+Preview note share the document header, signature layout and current draft content.
 
 When the backend reports an available AI provider, `note-service.ts` submits the reviewed text
 and supporting text to `/noting/draft` for structured AI drafting. Provider failures fall back
 to local drafting. The workspace labels the engine used. Set `OPENAI_API_KEY` in `backend/.env`
 to enable AI; credentials stay on the backend. Combined input is limited to 200,000 characters.
 
-The reference panel exposes all four supplied rulebooks (GPF, consultancy, Assam procurement,
-and the central works manual) for every
-generated note, with search and rulebook filtering. Provisions used in the note appear first;
-other provisions are available for reference and manual citation. All entries link to their source
-PDF pages. Automatic calculations still use the provisions selected for the proposal's subject and
-institution. See `samples/README.md` for source maintenance.
+The reference panel, source picker and assistant show only provisions selected for
+the current proposal, with links to their source PDF pages. A rulebook filter appears
+only when the applicable provisions span multiple books. Proposals with no matched
+provisions show an empty state instead of unrelated rules. See `samples/README.md`
+for source maintenance.
 
 Run the workflow tests with `npm run test:playground --workspace @instinctgo/frontend`.

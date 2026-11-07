@@ -83,6 +83,10 @@ prepares a labelled local draft instead. Provider/validation failures return 502
 the local fallback. AI drafting sends reviewed text to the configured provider and does not
 persist or approve the note. Restart the backend after changing the cached note library.
 
+Procurement notes omit generic profile examination and copied rule-application
+instructions from their paragraphs; applicable rules remain structured references.
+The browser displays only the current proposal's selected provisions.
+
 Run `uv run --directory backend pytest -q` from the repository root for the noting API tests.
 
 ## PostgreSQL and Redis

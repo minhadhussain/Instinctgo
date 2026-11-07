@@ -80,6 +80,42 @@ def test_ai_note_omits_clarification_footer_closing_and_disclaimers(proposal, co
     assert content.recommendation == ""
 
 
+def test_procurement_guidance_stays_in_rule_metadata_not_note_paragraphs(content):
+    library = noting.load_note_library()
+    request = NoteDraftRequest(
+        title="Purchase of library computers",
+        proposal_id="purchase",
+        proposal_text=(
+            "Dibrugarh University\nWe request five computers for the library through "
+            "request for quotations. Estimated cost: INR 75000"
+        ),
+    )
+    content.category = "procurement"
+    content.institution = "Dibrugarh University"
+    content.facts = []
+    content.recommendation = ""
+    selected_ids = ["assam-proc-3", "assam-proc-4", "assam-proc-8", "assam-proc-24-f"]
+    rules = [rule for rule in library["rules"] if rule["id"] in selected_ids]
+    content.applied_rules = [
+        AppliedRule(id=rule["id"], reason=rule["application"]) for rule in rules
+    ]
+    facts = "The library requests five computers at an estimated cost of INR 75000."
+    analysis = (
+        "The stated INR 75000 estimate is below the INR 100000 per-occasion limit; "
+        "the annual record is not supplied."
+    )
+    profile = next(profile for profile in library["profiles"] if profile["id"] == "procurement")
+    content.paragraphs = [
+        facts,
+        profile["examination"],
+        " ".join(rule["application"] for rule in rules),
+        analysis,
+    ]
+    noting.validate_note_content(content, request, library)
+    assert content.paragraphs == [facts, analysis]
+    assert [rule.id for rule in content.applied_rules] == selected_ids
+
+
 def test_output_rejects_example_fact_leakage(proposal, content):
     content.facts[0].value = "Dr. Aditi Bora"
     with pytest.raises(ValueError, match="not copied"):

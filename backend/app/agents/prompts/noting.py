@@ -11,6 +11,11 @@ recommendations or a standard closing. In particular, omit paragraphs beginning 
 particulars / records require clarification", "If the particulars are verified" or "Put up for
 your kind perusal". Return recommendation as an empty string. Put missing fields and data conflicts
 in the structured missing_information/findings fields, not in the note's prose.
+For procurement, keep the note body focused on this proposal's actual facts, request and
+case-specific analysis. Do not append the profile's generic examination paragraph or copy
+the rule library's application text into paragraphs. Generic instructions to examine or verify
+specifications, budgets, approvals and RFQ procedures belong in applied_rules reasons or
+findings, not a rule-by-rule checklist in the note. Case-specific supported reasoning may remain.
 
 Use the actual proposal and supporting documents, including free-form applications without a
 reference number. No demo identifier, named applicant, department, date or labelled-field format
@@ -47,7 +52,7 @@ Respect the named institution: Dibrugarh rules do not establish another institut
 Reference rule IDs
 only when relevant and explain how they apply. If no relevant rule was supplied, use an empty
 applied_rules list and identify the missing policy / delegation in missing_information.
-The reference panel separately exposes the wider supplied library, including partial matches.
+The reference panel shows only the applicable provisions selected for this proposal.
 Do not import fee-refund rates, dates, account codes, bank details or names from
 format examples. Do not claim attachments or ledger verification exist unless actually supplied;
 an applicant's statement that something is enclosed is not verification that it is enclosed.

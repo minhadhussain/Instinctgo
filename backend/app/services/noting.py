@@ -72,10 +72,25 @@ def money_value(text: str) -> float | None:
 
 def clean_note_paragraphs(paragraphs: list[str], library: dict) -> list[str]:
     prefixes = [value.casefold() for value in library["notePresentation"]["omitPrefixes"]]
+    reference_only = set(library["notePresentation"].get("referenceOnlyCategories", []))
+    guidance = [
+        profile["examination"]
+        for profile in library["profiles"]
+        if reference_only.intersection(profile["categories"])
+    ] + [
+        rule["application"]
+        for rule in library["rules"]
+        if reference_only.intersection(rule["categories"]) and rule.get("application")
+    ]
+    reference_guidance = {
+        normal(part).casefold()
+        for text in guidance
+        for part in [text, *re.split(r"(?<=[.!?])(?=\s+[A-Z])", text)]
+    }
 
     def boilerplate(text: str) -> bool:
         value = normal(re.sub(r"^\s*\d+[.)]\s*", "", text)).casefold()
-        return any(value.startswith(prefix) for prefix in prefixes)
+        return value in reference_guidance or any(value.startswith(prefix) for prefix in prefixes)
 
     cleaned = []
     for paragraph in paragraphs:

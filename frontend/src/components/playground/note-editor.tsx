@@ -9,6 +9,7 @@ import type { CaseDefinition, CaseState, ReferenceDocument } from "@/lib/playgro
 import { escapeHtml } from "@/lib/playground/renderer";
 import { FontSize } from "./editor-extensions";
 import { Modal } from "./ui";
+import { NotePaperHeader, NotePaperSignature } from "./note-paper";
 
 interface Props {
   item: CaseDefinition; state: CaseState; editable: boolean; documents: ReferenceDocument[];
@@ -21,7 +22,7 @@ export function NoteEditor({ item, state, editable, documents, onChange, onPrevi
   const editor = useEditor({
     extensions: [StarterKit.configure({ heading: { levels: [2, 3] }, link: { openOnClick: false, autolink: false } }), FontSize, TableKit.configure({ table: { resizable: false, cellMinWidth: 50 } })],
     immediatelyRender: false, shouldRerenderOnTransaction: true, content: state.html, editable,
-    editorProps: { attributes: { class: `pg-rich-editor pg-finance-text${proposal ? " pg-proposal-text" : ""}`, "aria-label": proposal ? "Proposal text editor" : "Finance note editor", role: "textbox", "aria-multiline": "true" } },
+    editorProps: { attributes: { class: `pg-rich-editor pg-finance-text pg-document-content${proposal ? " pg-proposal-text" : ""}`, "aria-label": proposal ? "Proposal text editor" : "Finance note editor", role: "textbox", "aria-multiline": "true" } },
     onUpdate: ({ editor }) => onChange(editor.getHTML(), editor.getText()),
   }, [item.id, state.draftKind]);
   useEffect(() => { if (editor && editor.getHTML() !== state.html) editor.commands.setContent(state.html, { emitUpdate: false }); }, [editor, state.html]);
@@ -49,12 +50,9 @@ export function NoteEditor({ item, state, editable, documents, onChange, onPrevi
     </div>
     <div className="pg-document-scroll" data-lenis-prevent>
       <article className="pg-note-paper">
-        <div className="pg-note-kicker"><span>{item.institution?.toUpperCase() ?? "UNIVERSITY · FINANCE"}</span><span>{proposal ? "PROPOSAL TEXT" : "FINANCE NOTE"}</span></div>
-        <h2>{proposal ? "Extracted proposal text" : "Note for consideration"}</h2>
-        <div className="pg-note-subject"><span>Subject</span><strong>{item.subject}</strong></div>
-        <div className="pg-note-reference">{item.date} · {item.section}</div>
+        <NotePaperHeader item={item} state={state} />
         <div onClick={(event) => { if ((event.target as HTMLElement).closest("a")) { event.preventDefault(); openSource(event.target as HTMLElement); } }}><EditorContent editor={editor} /></div>
-        {state.signature && <div className="pg-signature"><strong>{state.signature.name}</strong><small>{state.signature.role} · {new Date(state.signature.date).toLocaleString()}</small></div>}
+        <NotePaperSignature signature={state.signature} />
       </article>
     </div>
     <div className="pg-editor-footer"><span>{state.savedAt ? "Saved" : "Ready"}</span><span>{state.text.trim().split(/\s+/).filter(Boolean).length} words · {editable ? "Autosave on" : "Read-only"}</span></div>

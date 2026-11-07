@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowRight, ArrowUp, BookOpen, ChevronDown, MessageSquareText } from "lucide-react";
 import { demoAI, respondToIntake, respondToRules } from "@/lib/playground/assistant";
 import type { AssistantResponse, CaseDefinition, CaseState, ReferenceDocument } from "@/lib/playground/types";
+import { noteReferences } from "@/lib/playground/note-draft";
 
 interface Message extends AssistantResponse { question: string; id: number }
 interface CaseProps { libraryOnly?: false; item: CaseDefinition; state: CaseState; cases: CaseDefinition[]; states: Record<string, CaseState>; documents?: ReferenceDocument[]; expanded?: boolean; editable: boolean; onInsert: (text: string, citations?: string[]) => void; onPreview: (document: ReferenceDocument) => void; onOpen: (id: string) => void }
@@ -20,7 +21,7 @@ export function AssistantPanel(props: Props) {
   const [inserted, setInserted] = useState<number[]>([]);
   const [contextId, setContextId] = useState("");
   const history = useRef<HTMLDivElement>(null);
-  const documents = props.documents ?? [...caseContext!.cases.flatMap((item) => item.documents), ...caseContext!.state.extraDocuments];
+  const documents = props.documents ?? noteReferences(caseContext!.item, caseContext!.state);
   const starters = intake ? [["How to start", "How do I start?"], ["About the sample", "What is the sample case?"], ["Supported files", "Which file formats can I upload?"]] : proposal ? [["Summarise", "Summarise this proposal"], ["Check details", "Check the required proposal details"], ["Next step", "How do I convert this into a note?"]] : [["Summarise", "Summarise this note"], ["Rule references", "Show the supplied rule references"], ["Draft next action", "Draft the next action"]];
   const context = documents.find((doc) => doc.id === contextId)?.title ?? (props.libraryOnly ? "Rules & Regulations" : proposal ? "Current proposal text" : "Note & applied rules");
   useEffect(() => { if (history.current) history.current.scrollTop = history.current.scrollHeight; }, [messages]);

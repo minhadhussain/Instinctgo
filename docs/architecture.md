@@ -526,6 +526,10 @@ decimal amounts, and thousand/lakh/lac/crore multipliers.
 ### 6.4 Local examination and calculations
 
 The selected library profile supplies routing, format pages, and examination prose.
+For categories in `notePresentation.referenceOnlyCategories` (currently procurement),
+generic profile examination and copied rule-application instructions stay in the
+reference metadata and are not appended to the note body. Cleanup also removes exact
+copies of those instructions from generated responses while retaining case-specific prose.
 The drafter combines receipt context, extracted particulars, a bounded quotation of
 the actual request, supporting-source titles, and category-specific analysis.
 It selects rules using category, rulebook signal, institution, and optional relevance
@@ -619,7 +623,7 @@ role sequence, particularly for consultancy committee routing.
 
 ### 7.1 Shared source library
 
-[`samples/noting-library.json`](../samples/noting-library.json) is version 5 in this
+[`samples/noting-library.json`](../samples/noting-library.json) is version 6 in this
 checkout. It holds eight format profiles, eleven supported categories, four rulebooks,
 and 61 reviewed rule entries (12 GPF, 14 consultancy, 23 Assam procurement and 12 central works).
 
@@ -659,8 +663,8 @@ The procurement profile is selected automatically in the same upload/drafting fl
 Its examination covers requirements, specifications/quantity, estimated expenditure,
 funding, quotations/bids and financial authority. Both supplied procurement manuals
 are registered from `samples/case-01/rules/`. Each rule resolves its registered
-rulebook ID through the shared lookup, and rule application wording is composed
-through the shared drafter. See [procurement source integration](../samples/procurement-sources.md).
+rulebook ID through the shared lookup. Procurement application wording remains in
+the selected reference metadata. See [procurement source integration](../samples/procurement-sources.md).
 
 ### 7.3 Rule selection and reference presentation
 
@@ -677,9 +681,10 @@ and backend use the same metadata checks; scope/amendment confirmations remain
 structured draft metadata. Legacy GPF/consultancy entries retain institution matching.
 
 The frontend builds `ReferenceDocument` objects from these entries. After note
-generation, `noteReferences` combines original/applied/supporting documents with all
-library provisions, deduplicating by ID. The sidebar exposes all four rulebooks, sorts
-applied provisions first, and supports substring search and rulebook filtering.
+generation, `noteReferences` combines original/supporting sources with selected
+applied provisions, deduplicating by ID and excluding unrelated rule entries.
+The sidebar supports substring search and a rulebook filter when selected provisions
+span multiple books. An unmatched proposal shows an empty state.
 Selecting a reference opens its source PDF with `#page=N` and shows the reviewed
 excerpt and metadata. Browsing a reference does not automatically apply it to a note.
 
@@ -817,8 +822,8 @@ session/status/authority/date and policy filters for retained explorer functiona
 Assistant responses contain text, citation IDs, optional case IDs, and optional draft
 wording. Inserting a suggestion is an explicit editor action. The adapter does not
 approve a note, route a file, perform semantic database retrieval, or invoke business
-integrations. Its displayed reference list can include the full supplied library;
-automatic applicability is controlled by note-generation rule matching.
+integrations. Its displayed reference list is limited to the current proposal's
+selected provisions; automatic applicability is controlled by note-generation matching.
 
 ## 10. Editing, preview, and document export
 
@@ -835,8 +840,8 @@ draft at Dealing Assistant level, with no active extraction/note request.
 
 Generated text and source labels are escaped before HTML construction. Manual
 citations use `#ref-<document-id>`, and link clicks open the source preview. Rule
-citations inserted from the full library are added to attached source state where
-needed so subsequent validation can resolve them.
+citations use the current case's sources and applicable provisions so subsequent
+validation can resolve them.
 
 ### 10.2 Preview
 
@@ -845,6 +850,11 @@ needed so subsequent validation can resolve them.
 binary search and DOM `Range` splitting at text/word boundaries for oversized blocks.
 Inline formatting is retained while splitting. The preview supports page navigation,
 30–150% zoom, source links, and a signature on the final page.
+
+The editor and preview use shared `NotePaperHeader`/`NotePaperSignature` components
+and document typography. Both render the same `state.html`; preview pagination does
+not filter the body or trigger a save. Manual edits therefore carry through to every
+preview page.
 
 `DocumentPreview` uses image elements or PDF iframes for originals, links to original
 downloads, and source PDF page anchors for rules. DOCX originals are downloadable;
@@ -1506,9 +1516,9 @@ ARQ, hosting, and provider logs remain part of the chosen operating environment.
 
 | Location | Coverage represented in source |
 | --- | --- |
-| `frontend/tests/playground.test.ts` | 41 tests spanning sequential guards, returns/closure, reference/amount checks, local assistant, intake, text normalization, PDF/OCR line handling, fixed GPF sample, automatic category/profile selection, procurement jurisdiction and method matching, general proposals, consultancy, cleanup, fallback/cancellation |
+| `frontend/tests/playground.test.ts` | 42 tests spanning sequential guards, returns/closure, applicable references, local assistant, intake, text normalization, PDF/OCR line handling, fixed GPF sample, automatic category/profile selection, procurement jurisdiction/method matching, generic-guidance removal, general proposals, consultancy, cleanup, fallback/cancellation |
 | `frontend/tests/deployment.test.ts` | 4 tests for same-origin paths, per-request binding resolution, no Vercel localhost fallback, body/header/status forwarding, redirects, gateway errors |
-| `backend/tests/test_noting.py` | 17 test cases for grounded proposals, boilerplate removal, example leakage, money/rule rejection, input bounds/IDs, mocked model/API responses, procurement scope and cited policy amounts, absent provider, consultancy |
+| `backend/tests/test_noting.py` | 18 test cases for grounded proposals, boilerplate and procurement-guidance removal, example leakage, money/rule rejection, input bounds/IDs, mocked model/API responses, procurement scope and cited policy amounts, absent provider, consultancy |
 | `backend/tests/test_deployment.py` | 3 tests for DB-independent Vercel startup, managed URL behavior, packaged reference resources |
 
 These counts describe the reviewed source baseline, not a newly executed test report.

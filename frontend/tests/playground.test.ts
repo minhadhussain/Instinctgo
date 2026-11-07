@@ -403,7 +403,8 @@ We request purchase of five computers for the library. The specifications and ve
     assert.equal(draft.category, "procurement");
     assert.equal(draft.facts.find((fact) => fact.key === "amount_requested")?.value, "INR 75000");
     assert.ok(draft.facts.every((fact) => factIsGrounded(fact, input)));
-    assert.match(draft.paragraphs.join(" "), /specifications.*quantity.*estimated expenditure.*budget availability/);
+    assert.match(draft.paragraphs.join(" "), /purchase of five computers/);
+    assert.doesNotMatch(draft.paragraphs.join(" "), /The procurement examination covers|Assam Rule 3 requires|Where RFQ is proposed/);
     assert.ok(draft.applied_rules.some((rule) => rule.id === "assam-proc-24-f"));
     assert.ok(draft.applied_rules.every((rule) => rule.id.startsWith("assam-proc-")));
     assert.ok(draft.missing_information.some((value) => value.includes("commencement/amendment")));
@@ -424,7 +425,14 @@ We request purchase of five computers for the library. The specifications and ve
     assert.equal(source.file?.pageCount, 104);
     assert.equal(source.issuer, "Government of Assam");
     assert.match(source.locator, /pages 57, 58/);
-    assert.match(result.state.text, /less than INR 100000.*INR 500000/);
+    assert.doesNotMatch(result.state.text, /less than INR 100000|INR 500000/);
+    assert.match(source.application!, /less than INR 100000.*INR 500000/);
+    const references = noteReferences(result.item, result.state);
+    assert.deepEqual(references.filter((doc) => !doc.original).map((doc) => doc.id), result.state.appliedRuleIds);
+    assert.ok(references.every((doc) => doc.original || doc.id.startsWith("assam-proc-")));
+    const answer = demoAI.respond({ question: "Show the applicable rule references", mode: "research", current: result.item, state: result.state, cases: [result.item], states: { [result.item.id]: result.state }, references: allRuleReferences });
+    assert.deepEqual(answer.citations, result.state.appliedRuleIds);
+    assert.doesNotMatch(answer.text, /GPF|Consultancy Service|Works Manual/);
   } finally { globalThis.fetch = originalFetch; }
 });
 
@@ -465,7 +473,13 @@ test("procurement reference provisions stay out of employee GPF and provided con
     const draft = buildLocalNote(draftInput(text));
     assert.ok(draft.applied_rules.length > 0);
     assert.ok(draft.applied_rules.every((rule) => rule.id.startsWith("du-")));
-    assert.ok(noteReferences({ ...sampleCases[0], documents: [] }, { ...initialCaseState(sampleCases[0]), draftKind: "note" }).some((document) => document.id === "assam-proc-3"));
+    const bytes = new TextEncoder().encode(text);
+    const item = createImportedCase({ name: "proposal.txt", type: "text/plain", size: bytes.length }, bytes.buffer, "blob:proposal", "FIN-SCOPED", now);
+    const extracted = applyExtractedText(item, initialCaseState(item), finishExtraction([{ page: 1, text, ocr: false }], "Text"), now);
+    const result = applyDraftNote(extracted.item, extracted.state, draft, now);
+    const references = noteReferences(result.item, result.state);
+    assert.ok(references.every((doc) => doc.original || result.state.appliedRuleIds?.includes(doc.id)));
+    assert.equal(references.some((doc) => doc.id.startsWith("assam-proc-") || doc.id.startsWith("goi-works-")), false);
   }
 });
 
@@ -506,8 +520,7 @@ test("note formation preserves originals, uses edited text and is independent of
   assert.equal(extracted.state.draftKind, "proposal");
   assert.equal(result.state.generation?.engine, "local");
   assert.equal(result.item.recommendation, "");
-  assert.ok(noteReferences(result.item, result.state).some((doc) => doc.id === "du-gpf-12-1"));
-  assert.ok(noteReferences(result.item, result.state).some((doc) => doc.id === "du-consultancy-2-1-1"));
+  assert.deepEqual(noteReferences(result.item, result.state).map((doc) => doc.id), [result.item.documents[0].id]);
   assert.deepEqual(result.state.appliedRuleIds, []);
   assert.equal(noteReferences(extracted.item, edited).some((doc) => doc.id === "du-gpf-12-1"), false);
   assert.equal(new Set(allRuleReferences.map((doc) => doc.id)).size, allRuleReferences.length);
@@ -650,6 +663,18 @@ test("generated note cleanup removes boilerplate while retaining facts and calcu
   assert.deepEqual(cleanNoteParagraphs([`${facts} No numerical interest rate is assumed in this note.`]), [facts]);
   assert.deepEqual(cleanNoteParagraphs([removed.join("\n\n")]), []);
   assert.ok(allRuleReferences.every((doc) => doc.file?.url && doc.file.page));
+});
+
+test("procurement instruction paragraphs are removed without discarding case-specific analysis", () => {
+  const facts = "The library requests five computers at an estimated cost of INR 75000.";
+  const analysis = "The stated INR 75000 estimate is below the INR 100000 per-occasion limit; the annual record is not supplied.";
+  const guidance = [
+    "The procurement examination covers the stated need, specifications and quantity, estimated expenditure, budget availability, and the proposed sourcing method. Examine the supplied quotations or bid records, price comparison, delivery and acceptance terms, and the applicable procurement provisions and delegation of financial authority.",
+    "Assam Rule 3 requires the proposal's public need, quantity, specifications, compatibility and realistic cost estimate to be examined together; avoid unnecessary features, excess quantities and idle inventory. Under Assam Rule 4, relate the requirement to the approved procurement plan, funding source, proposed method and delivery or completion schedule, recording reasons for an alternative to open competitive bidding.",
+    "Where RFQ is proposed, Assam Rule 24(F) specifies less than INR 100000 per occasion and an INR 500000 financial-year ceiling in the supplied edition. Examine the annual procurement record, at least three requested sealed quotations, market-price reasonableness and the signed comparative statement.",
+  ];
+  assert.deepEqual(cleanNoteParagraphs([facts, ...guidance, analysis]), [facts, analysis]);
+  assert.deepEqual(cleanNoteParagraphs([`${facts} ${guidance.join(" ")} ${analysis}`]), [`${facts} ${analysis}`]);
 });
 
 test("the drafting service falls back locally without a configured model and honours cancellation", async () => {
